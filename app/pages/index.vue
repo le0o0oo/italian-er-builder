@@ -239,7 +239,7 @@ const hint = computed(() => {
         <Tip :text="t('tip.addGeneralization')" shortcut="newGeneralization">
           <Button variant="ghost" @click="addAt(addGeneralization)"><Icon name="lucide:triangle" /><span class="hidden lg:inline">{{ t('tool.generalization') }}</span></Button>
         </Tip>
-        <Separator orientation="vertical" class="mx-0.5 h-5" />
+        <Separator orientation="vertical" class="mx-0.5 h-5 data-[orientation=vertical]:self-center" />
         <DropdownMenu>
           <DropdownMenuTrigger as-child>
             <Button :variant="autoLayout ? 'secondary' : 'ghost'" :title="t('layout.options')">
@@ -265,7 +265,7 @@ const hint = computed(() => {
             <p class="px-2 pb-1.5 text-xs text-muted-foreground">{{ t('layout.autoNote') }}</p>
           </DropdownMenuContent>
         </DropdownMenu>
-        <Separator orientation="vertical" class="mx-0.5 h-5" />
+        <Separator orientation="vertical" class="mx-0.5 h-5 data-[orientation=vertical]:self-center" />
         <Tip :text="t('tip.undo')" shortcut="undo"><Button variant="ghost" size="icon" :disabled="!canUndo" @click="undo"><Icon name="lucide:undo-2" /></Button></Tip>
         <Tip :text="t('tip.redo')" shortcut="redo"><Button variant="ghost" size="icon" :disabled="!canRedo" @click="redo"><Icon name="lucide:redo-2" /></Button></Tip>
       </div>
