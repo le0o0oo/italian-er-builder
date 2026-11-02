@@ -6,6 +6,7 @@ import type { Locale } from '~/utils/i18n'
 const { t, locale } = useT()
 const { canonical } = useSeo({ title: () => t('seo.title'), description: () => t('seo.desc') })
 useHead({
+  noscript: [{ innerHTML: () => `<p>${t('sr.noscript')}</p>`, tagPosition: 'bodyOpen' }],
   script: [{
     type: 'application/ld+json',
     innerHTML: JSON.stringify({
@@ -182,7 +183,6 @@ const hint = computed(() => {
         </ul>
         <NuxtLink to="/guide">{{ t('sr.guide') }}</NuxtLink>
       </section>
-      <noscript><p>{{ t('sr.noscript') }}</p></noscript>
       <div class="absolute inset-0">
         <ClientOnly><DiagramCanvas ref="canvas" /></ClientOnly>
       </div>
