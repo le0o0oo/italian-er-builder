@@ -13,7 +13,7 @@ const open = ref(false)
         <span v-if="enabled && warnings.length" class="absolute -top-0.5 -right-0.5 flex min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] leading-4 font-semibold text-white">{{ warnings.length }}</span>
       </Button>
     </PopoverTrigger>
-    <PopoverContent align="end" class="w-96 space-y-3 p-3">
+    <PopoverContent align="end" class="w-[min(24rem,calc(100vw-1.5rem))] space-y-3 p-3">
       <div class="flex items-center justify-between">
         <p class="text-sm font-semibold">{{ t('warn.heading') }}</p>
         <label class="flex items-center gap-2 text-xs text-muted-foreground">

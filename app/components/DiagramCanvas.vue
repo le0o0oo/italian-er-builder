@@ -37,7 +37,42 @@ function toWorld(ev: { clientX: number, clientY: number }) {
   return { x: (ev.clientX - r.left - view.x) / view.k, y: (ev.clientY - r.top - view.y) / view.k }
 }
 
+// ---- touch: pinch to zoom, long-press for the context menu ----
+const pointers = new Map<number, { x: number, y: number }>()
+let pinch: { dist: number, k: number, wx: number, wy: number } | null = null
+let pressTimer: ReturnType<typeof setTimeout> | undefined
+let pressStart = { x: 0, y: 0 }
+const clearPress = () => { clearTimeout(pressTimer); pressTimer = undefined }
+const isCoarse = ref(false)
+
+function trackPointer(ev: PointerEvent) {
+  pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY })
+  if (ev.pointerType === 'touch') svg.value?.setPointerCapture(ev.pointerId)
+  if (pointers.size === 2) {
+    drag = null
+    rubber.value = null
+    clearPress()
+    const [a, b] = [...pointers.values()] as [{ x: number, y: number }, { x: number, y: number }]
+    const r = svg.value!.getBoundingClientRect()
+    const mx = (a.x + b.x) / 2 - r.left
+    const my = (a.y + b.y) / 2 - r.top
+    pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y) || 1, k: view.k, wx: (mx - view.x) / view.k, wy: (my - view.y) / view.k }
+  }
+}
+function pinchMove() {
+  if (!pinch) return
+  const [a, b] = [...pointers.values()] as [{ x: number, y: number }, { x: number, y: number }]
+  const r = svg.value!.getBoundingClientRect()
+  const mx = (a.x + b.x) / 2 - r.left
+  const my = (a.y + b.y) / 2 - r.top
+  const k = Math.min(3, Math.max(0.2, pinch.k * (Math.hypot(a.x - b.x, a.y - b.y) / pinch.dist)))
+  view.k = k
+  view.x = mx - pinch.wx * k
+  view.y = my - pinch.wy * k
+}
+
 function onBgDown(ev: PointerEvent) {
+  if (pointers.size > 1) return
   if (ev.button !== 0 && ev.button !== 1) return
   if (mode.value === 'link') { pendingId.value = null; mode.value = 'select' }
   select(null)
@@ -46,7 +81,17 @@ function onBgDown(ev: PointerEvent) {
 }
 
 function onNodeDown(ev: PointerEvent, node: DiagramNode) {
-  if (ev.button !== 0) return
+  if (ev.button !== 0 || pointers.size > 1) return
+  if (ev.pointerType === 'touch') {
+    // long-press opens the context menu (touch screens have no right click)
+    const el = ev.currentTarget as Element
+    pressStart = { x: ev.clientX, y: ev.clientY }
+    clearPress()
+    pressTimer = setTimeout(() => {
+      drag = null
+      el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: pressStart.x, clientY: pressStart.y }))
+    }, 550)
+  }
   if (mode.value === 'link') return linkClick(node)
   select(node.id)
   if (autoLayout.value) return
@@ -94,7 +139,7 @@ function hitNode(p: { x: number, y: number }, from: DiagramNode): DiagramNode | 
 }
 
 function onHandleDown(ev: PointerEvent) {
-  if (ev.button !== 0 || !handle.value) return
+  if (ev.button !== 0 || !handle.value || pointers.size > 1) return
   const p = toWorld(ev)
   rubber.value = { from: handle.value.node, x: p.x, y: p.y, target: null }
   drag = { type: 'connect' }
@@ -102,6 +147,9 @@ function onHandleDown(ev: PointerEvent) {
 }
 
 function onMove(ev: PointerEvent) {
+  if (pointers.has(ev.pointerId)) pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY })
+  if (pinch) return pinchMove()
+  if (pressTimer && Math.hypot(ev.clientX - pressStart.x, ev.clientY - pressStart.y) > 8) clearPress()
   if (!drag) return
   if (drag.type === 'connect') {
     const p = toWorld(ev)
@@ -126,6 +174,9 @@ const choice = ref<{ a: Entity, b: Entity, left: number, top: number } | null>(n
 const choiceOpen = computed({ get: () => !!choice.value, set: (v) => { if (!v) choice.value = null } })
 
 function onUp(ev?: PointerEvent) {
+  if (ev) pointers.delete(ev.pointerId)
+  if (pointers.size < 2) pinch = null
+  clearPress()
   if (drag?.type === 'connect' && rubber.value) {
     const from = rubber.value.from
     const target = find(rubber.value.target)
@@ -341,7 +392,7 @@ function exportSvg() {
   return {
     width: w,
     height: h,
-    markup: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${x} ${y} ${w} ${h}" width="${w}" height="${h}" font-family="Arial, Helvetica, sans-serif"><rect x="${x}" y="${y}" width="${w}" height="${h}" :fill="c.paper"/>${inner}</svg>`,
+    markup: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${x} ${y} ${w} ${h}" width="${w}" height="${h}" font-family="Arial, Helvetica, sans-serif"><rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#fff"/>${inner}</svg>`,
   }
 }
 
@@ -354,7 +405,10 @@ function focusNode(id: string) {
 }
 
 defineExpose({ center, fit, zoom, exportSvg, focusNode })
-onMounted(() => nextTick(fit))
+onMounted(() => {
+  isCoarse.value = window.matchMedia('(pointer: coarse)').matches
+  nextTick(fit)
+})
 </script>
 
 <template>
@@ -364,6 +418,7 @@ onMounted(() => nextTick(fit))
     ref="svg"
     class="size-full touch-none select-none"
     :class="mode === 'link' ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'"
+    @pointerdown.capture="trackPointer"
     @pointerdown="onBgDown"
     @pointermove="onMove"
     @pointerup="onUp"
@@ -440,7 +495,7 @@ onMounted(() => nextTick(fit))
       <!-- connect handle (selected node) and rubber band -->
       <g v-if="handle && !rubber" data-ui class="cursor-crosshair" @pointerdown.stop="onHandleDown">
         <line :x1="handle.node.x" :y1="handle.node.y" :x2="handle.x" :y2="handle.y" :stroke="c.sel" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.7" />
-        <circle :cx="handle.x" :cy="handle.y" r="11" :fill="c.sel" />
+        <circle :cx="handle.x" :cy="handle.y" :r="isCoarse ? 16 : 11" :fill="c.sel" />
         <path :d="`M${handle.x - 5} ${handle.y}h10M${handle.x} ${handle.y - 5}v10`" stroke="#fff" stroke-width="2" stroke-linecap="round" />
         <title>{{ t('canvas.handle') }}</title>
       </g>

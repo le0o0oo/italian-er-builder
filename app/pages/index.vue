@@ -170,7 +170,7 @@ const hint = computed(() => {
 
 <template>
   <TooltipProvider :delay-duration="300">
-    <div class="relative h-screen overflow-hidden bg-background">
+    <div class="relative h-dvh overflow-hidden bg-background">
       <!-- Crawlable, screen-reader friendly description of the app (the canvas itself is client-rendered). -->
       <section class="sr-only" :aria-label="t('sr.about')">
         <h1>{{ t('sr.h1') }}</h1>
@@ -192,7 +192,7 @@ const hint = computed(() => {
         <DropdownMenu>
           <DropdownMenuTrigger as-child>
             <Button variant="ghost" class="gap-2 font-semibold">
-              <Icon name="lucide:git-fork" class="size-4" /> ER Maker <Icon name="lucide:chevron-down" class="size-3.5 opacity-60" />
+              <Icon name="lucide:git-fork" class="size-4" /> <span class="hidden sm:inline">ER Maker</span> <Icon name="lucide:chevron-down" class="size-3.5 opacity-60" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" class="w-52">
@@ -219,7 +219,7 @@ const hint = computed(() => {
       </div>
 
       <!-- top center: tools -->
-      <div :class="[panel, 'absolute top-4 left-1/2 -translate-x-1/2']">
+      <div :class="[panel, 'absolute bottom-4 left-1/2 z-10 -translate-x-1/2 md:top-4 md:bottom-auto', selected && 'max-md:hidden']">
         <Tip :text="t('tip.addEntity')" shortcut="newEntity">
           <Button variant="ghost" @click="addAt(addEntity)"><Icon name="lucide:square" /><span class="hidden lg:inline">{{ t('tool.entity') }}</span></Button>
         </Tip>
@@ -275,7 +275,7 @@ const hint = computed(() => {
           </DropdownMenuContent>
         </DropdownMenu>
         <WarningsPanel @focus="focusFromWarning" />
-        <Tip :text="t('tip.shortcuts')"><Button variant="ghost" size="icon" @click="shortcutsOpen = true"><Icon name="lucide:keyboard" /></Button></Tip>
+        <Tip :text="t('tip.shortcuts')"><Button class="max-md:hidden" variant="ghost" size="icon" @click="shortcutsOpen = true"><Icon name="lucide:keyboard" /></Button></Tip>
         <Tip :text="t('tip.theme')">
           <Button variant="ghost" size="icon" aria-label="Toggle theme" @click="colorMode.preference = colorMode.value === 'dark' ? 'light' : 'dark'">
             <ClientOnly><Icon :name="colorMode.value === 'dark' ? 'lucide:sun' : 'lucide:moon'" /></ClientOnly>
@@ -284,19 +284,19 @@ const hint = computed(() => {
       </div>
 
       <!-- inspector: only while something is selected -->
-      <aside v-if="selected" class="absolute top-[4.75rem] right-4 max-h-[calc(100%-6.5rem)] w-80 overflow-y-auto rounded-xl border bg-background/85 shadow-lg backdrop-blur-md">
+      <aside v-if="selected" class="absolute inset-x-3 bottom-3 z-10 max-h-[55dvh] overflow-y-auto rounded-xl border bg-background/90 shadow-lg backdrop-blur-md md:inset-x-auto md:top-[4.75rem] md:right-4 md:bottom-auto md:max-h-[calc(100%-6.5rem)] md:w-80 md:bg-background/85">
         <Inspector />
       </aside>
 
       <!-- bottom left: zoom -->
-      <div :class="[panel, 'absolute bottom-4 left-4']">
+      <div :class="[panel, 'absolute bottom-20 left-4 md:bottom-4', selected && 'max-md:hidden']">
         <Tip :text="t('tip.zoomOut')" side="top"><Button variant="ghost" size="icon" @click="canvas?.zoom(1 / 1.25)"><Icon name="lucide:zoom-out" /></Button></Tip>
         <Tip :text="t('tip.zoomIn')" side="top"><Button variant="ghost" size="icon" @click="canvas?.zoom(1.25)"><Icon name="lucide:zoom-in" /></Button></Tip>
         <Tip :text="t('tip.fit')" shortcut="fit" side="top"><Button variant="ghost" size="icon" @click="canvas?.fit()"><Icon name="lucide:maximize" /></Button></Tip>
       </div>
 
       <!-- bottom center: contextual shortcut tips -->
-      <div v-if="keyTips.length" :class="[panel, 'pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 gap-x-3 px-3 text-xs text-muted-foreground']">
+      <div v-if="keyTips.length" :class="[panel, 'pointer-events-none absolute max-md:hidden bottom-4 left-1/2 -translate-x-1/2 gap-x-3 px-3 text-xs text-muted-foreground']">
         <span v-if="selectedId" class="flex items-center gap-1"><span class="inline-flex size-4 items-center justify-center rounded-full bg-blue-500 text-[10px] leading-none text-white">+</span> {{ t('tips.dragConnect') }}</span>
         <span v-for="t in keyTips" :key="t.id" class="flex items-center gap-1">
           <kbd class="rounded border bg-muted px-1 py-0.5 font-mono text-[10px] text-foreground">{{ t.key }}</kbd> {{ t.name }}
