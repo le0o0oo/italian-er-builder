@@ -1,131 +1,158 @@
 import type { Diagram } from '~/types/er'
+import type { Placed } from './layout-shared'
+import { buildLayoutNodes } from './layout-shared'
+import type { Placed as _P } from './layout-shared'
 
-interface LNode { id: string, x: number, y: number, l: number, r: number, t: number, b: number }
+const CROSS_GAP = 56
+const MAIN_GAP = 90
+const GROUP_GAP = 150
 
-const labelWidth = (names: string[]) => Math.max(0, ...names.map(n => n.length * 7 + 44))
-
-/** Computes tidy positions for every node (force-directed, then overlap removal, snapped to the grid). */
-export function computeLayout(d: Diagram): Map<string, { x: number, y: number }> {
-  const nodes: LNode[] = []
-  const index = new Map<string, number>()
-  const add = (n: LNode) => { index.set(n.id, nodes.length); nodes.push(n) }
-
-  for (const e of d.entities) {
-    const { w, h } = nodeSize(e)
-    const comb = e.attributes.length ? 14 + e.attributes.length * 24 : 0
-    add({ id: e.id, x: e.x, y: e.y, l: -w / 2, r: Math.max(w / 2, -w / 2 + 18 + labelWidth(e.attributes.map(a => a.name + (a.card === '1,1' ? '' : '(0,N)')))), t: -h / 2, b: h / 2 + comb })
-  }
-  for (const r of d.relationships) {
-    const { w, h } = nodeSize(r)
-    const comb = r.attributes.length ? 14 + r.attributes.length * 24 : 0
-    add({ id: r.id, x: r.x, y: r.y, l: -w / 2, r: Math.max(w / 2, labelWidth(r.attributes.map(a => a.name + (a.card === '1,1' ? '' : '(0,N)')))), t: -h / 2, b: h / 2 + comb })
-  }
-  for (const g of d.generalizations) add({ id: g.id, x: g.x, y: g.y, l: -24, r: 24, t: -24, b: 24 })
+/**
+ * Layered layout: nodes are put on layers by distance from the best-connected entity, layers are ordered
+ * to reduce crossings and aligned with their neighbours. Both a top-to-bottom and a left-to-right flow
+ * are computed and the one with the nicer aspect ratio wins. Deterministic: the result never depends
+ * on where the nodes currently are.
+ */
+export function computeLayeredLayout(d: Diagram): Map<string, Placed> {
+  const { nodes, index } = buildLayoutNodes(d)
   const n = nodes.length
   if (!n) return new Map()
 
-  const edges: [number, number, number][] = []
-  for (const r of d.relationships) {
-    for (const l of r.links) {
-      const a = index.get(r.id)
-      const b = index.get(l.entityId)
-      if (a !== undefined && b !== undefined) edges.push([a, b, 230])
-    }
+  const adj: Set<number>[] = nodes.map(() => new Set())
+  const connect = (a: string, b: string | null) => {
+    const i = index.get(a)
+    const j = b ? index.get(b) : undefined
+    if (i === undefined || j === undefined || i === j) return
+    adj[i]!.add(j)
+    adj[j]!.add(i)
   }
-  for (const g of d.generalizations) {
-    const gi = index.get(g.id)!
-    for (const id of [g.parentId, ...g.childIds]) {
-      const o = id ? index.get(id) : undefined
-      if (o !== undefined) edges.push([gi, o, 150])
-    }
-  }
+  for (const r of d.relationships) for (const l of r.links) connect(r.id, l.entityId)
+  for (const g of d.generalizations) for (const id of [g.parentId, ...g.childIds]) connect(g.id, id)
 
-  // Deterministic start (independent of current positions, so re-running never drifts):
-  // walk the graph breadth-first and place nodes on a circle in that order.
-  const adj: number[][] = nodes.map(() => [])
-  for (const [a, b] of edges) { adj[a]!.push(b); adj[b]!.push(a) }
-  const order: number[] = []
+  // ---- connected components, layered by BFS depth from their best-connected entity ----
   const seen = new Set<number>()
-  for (let s0 = 0; s0 < n; s0++) {
-    if (seen.has(s0)) continue
-    const queue = [s0]
-    seen.add(s0)
-    while (queue.length) {
-      const v = queue.shift()!
-      order.push(v)
-      for (const w of adj[v]!) if (!seen.has(w)) { seen.add(w); queue.push(w) }
-    }
-  }
-  order.forEach((ni, k) => {
-    const a = (k / n) * Math.PI * 2
-    const rad = 110 * Math.sqrt(n)
-    nodes[ni]!.x = Math.cos(a) * rad
-    nodes[ni]!.y = Math.sin(a) * rad
-  })
-
-  const ITER = 400
-  const dx = new Float64Array(n)
-  const dy = new Float64Array(n)
-  for (let it = 0; it < ITER; it++) {
-    dx.fill(0)
-    dy.fill(0)
-    for (let i = 0; i < n; i++) {
-      for (let j = i + 1; j < n; j++) {
-        let vx = nodes[i]!.x - nodes[j]!.x
-        let vy = nodes[i]!.y - nodes[j]!.y
-        let dist = Math.hypot(vx, vy)
-        if (dist < 1) { vx = Math.sin(i + j); vy = Math.cos(i + j); dist = 1 }
-        const f = Math.min(90000 / (dist * dist), 40)
-        dx[i]! += vx / dist * f; dy[i]! += vy / dist * f
-        dx[j]! -= vx / dist * f; dy[j]! -= vy / dist * f
+  const comps: { ids: number[], layer: Map<number, number> }[] = []
+  const singles: number[] = []
+  const byDegree = [...nodes.keys()].sort((a, b) => adj[b]!.size - adj[a]!.size || Number(nodes[b]!.entity) - Number(nodes[a]!.entity) || a - b)
+  for (const root of byDegree) {
+    if (seen.has(root)) continue
+    if (!adj[root]!.size) { singles.push(root); seen.add(root); continue }
+    const layer = new Map<number, number>([[root, 0]])
+    const ids = [root]
+    seen.add(root)
+    for (let q = 0; q < ids.length; q++) {
+      const v = ids[q]!
+      for (const w of [...adj[v]!].sort((a, b) => a - b)) {
+        if (seen.has(w)) continue
+        seen.add(w)
+        layer.set(w, layer.get(v)! + 1)
+        ids.push(w)
       }
     }
-    for (const [a, b, len] of edges) {
-      const vx = nodes[b]!.x - nodes[a]!.x
-      const vy = nodes[b]!.y - nodes[a]!.y
-      const dist = Math.hypot(vx, vy) || 1
-      const f = (dist - len) * 0.06
-      dx[a]! += vx / dist * f; dy[a]! += vy / dist * f
-      dx[b]! -= vx / dist * f; dy[b]! -= vy / dist * f
-    }
-    const cap = 40 * (1 - it / ITER) + 1
-    for (let i = 0; i < n; i++) {
-      const m = Math.hypot(dx[i]!, dy[i]!) || 1
-      const s = Math.min(m, cap) / m
-      nodes[i]!.x += dx[i]! * s
-      nodes[i]!.y += dy[i]! * s
-    }
+    comps.push({ ids, layer })
   }
+  comps.sort((a, b) => b.ids.length - a.ids.length)
+  if (singles.length) comps.push({ ids: singles.sort((a, b) => a - b), layer: new Map(singles.map(i => [i, 0])) })
 
-  // Push apart anything whose boxes (attributes included) still overlap.
-  const M = 36
-  for (let pass = 0; pass < 120; pass++) {
-    let moved = false
-    for (let i = 0; i < n; i++) {
-      for (let j = i + 1; j < n; j++) {
-        const a = nodes[i]!
-        const b = nodes[j]!
-        const ox = Math.min(a.x + a.r, b.x + b.r) - Math.max(a.x + a.l, b.x + b.l) + M
-        const oy = Math.min(a.y + a.b, b.y + b.b) - Math.max(a.y + a.t, b.y + b.t) + M
-        if (ox <= 0 || oy <= 0) continue
-        moved = true
-        if (ox < oy) {
-          const s = (a.x + (a.l + a.r) / 2 <= b.x + (b.l + b.r) / 2 ? -1 : 1) * ox / 2
-          a.x += s; b.x -= s
+  function layoutGroup(ids: number[], layerOf: Map<number, number>, horizontal: boolean) {
+    const mainExt = (i: number) => horizontal ? [nodes[i]!.l, nodes[i]!.r] as const : [nodes[i]!.t, nodes[i]!.b] as const
+    const crossExt = (i: number) => horizontal ? [nodes[i]!.t, nodes[i]!.b] as const : [nodes[i]!.l, nodes[i]!.r] as const
+    const depth = Math.max(...ids.map(i => layerOf.get(i)!)) + 1
+    const layers: number[][] = Array.from({ length: depth }, () => [])
+    for (const i of ids) layers[layerOf.get(i)!]!.push(i)
+
+    // crossing reduction: barycentre sweeps
+    const frac = new Map<number, number>()
+    const refreshFrac = () => layers.forEach(L => L.forEach((i, k) => frac.set(i, L.length > 1 ? k / (L.length - 1) : 0.5)))
+    refreshFrac()
+    for (let pass = 0; pass < 6; pass++) {
+      const down = pass % 2 === 0
+      const order = down ? layers.keys() : [...layers.keys()].reverse()
+      for (const li of order) {
+        const nb = li + (down ? -1 : 1)
+        if (nb < 0 || nb >= depth) continue
+        const bc = new Map<number, number>()
+        for (const i of layers[li]!) {
+          const ns = [...adj[i]!].filter(j => layerOf.get(j) === nb)
+          bc.set(i, ns.length ? ns.reduce((s, j) => s + frac.get(j)!, 0) / ns.length : frac.get(i)!)
         }
-        else {
-          const s = (a.y + (a.t + a.b) / 2 <= b.y + (b.t + b.b) / 2 ? -1 : 1) * oy / 2
-          a.y += s; b.y -= s
-        }
+        layers[li]!.sort((a, b) => bc.get(a)! - bc.get(b)!)
+        refreshFrac()
       }
     }
-    if (!moved) break
+
+    // cross coordinates: pack, then pull towards neighbours while keeping separation
+    const c = new Map<number, number>()
+    for (const L of layers) {
+      let cursor = 0
+      for (const i of L) { c.set(i, cursor - crossExt(i)[0]); cursor = c.get(i)! + crossExt(i)[1] + CROSS_GAP }
+      const mid = (Math.min(...L.map(i => c.get(i)! + crossExt(i)[0])) + Math.max(...L.map(i => c.get(i)! + crossExt(i)[1]))) / 2
+      for (const i of L) c.set(i, c.get(i)! - mid)
+    }
+    for (let pass = 0; pass < 8; pass++) {
+      const order = pass % 2 === 0 ? [...layers.keys()] : [...layers.keys()].reverse()
+      for (const li of order) {
+        const L = layers[li]!
+        const want = L.map((i) => {
+          const ns = [...adj[i]!]
+          return ns.length ? ns.reduce((s, j) => s + c.get(j)!, 0) / ns.length : c.get(i)!
+        })
+        const left = [...want]
+        for (let k = 1; k < L.length; k++) left[k] = Math.max(left[k]!, left[k - 1]! + crossExt(L[k - 1]!)[1] + CROSS_GAP - crossExt(L[k]!)[0])
+        const right = [...want]
+        for (let k = L.length - 2; k >= 0; k--) right[k] = Math.min(right[k]!, right[k + 1]! + crossExt(L[k + 1]!)[0] - CROSS_GAP - crossExt(L[k]!)[1])
+        L.forEach((i, k) => c.set(i, (left[k]! + right[k]!) / 2))
+      }
+    }
+
+    // main coordinates: layer after layer
+    const m = new Map<number, number>()
+    let cursor = 0
+    layers.forEach((L, li) => {
+      const lo = Math.min(...L.map(i => mainExt(i)[0]))
+      const hi = Math.max(...L.map(i => mainExt(i)[1]))
+      const centre = li === 0 ? -lo : cursor - lo
+      for (const i of L) m.set(i, centre)
+      cursor = centre + hi + MAIN_GAP
+    })
+
+    const toXY = (i: number): Placed => horizontal ? { x: m.get(i)!, y: c.get(i)! } : { x: c.get(i)!, y: m.get(i)! }
+    let x0 = Infinity; let y0 = Infinity; let x1 = -Infinity; let y1 = -Infinity
+    const pos = new Map<number, Placed>()
+    for (const i of ids) {
+      const p = toXY(i)
+      pos.set(i, p)
+      x0 = Math.min(x0, p.x + nodes[i]!.l); x1 = Math.max(x1, p.x + nodes[i]!.r)
+      y0 = Math.min(y0, p.y + nodes[i]!.t); y1 = Math.max(y1, p.y + nodes[i]!.b)
+    }
+    for (const p of pos.values()) { p.x -= x0; p.y -= y0 }
+    return { pos, w: x1 - x0, h: y1 - y0 }
   }
 
-  // Centre on the origin, then snap.
-  const cx1 = nodes.reduce((s, p) => s + p.x, 0) / n
-  const cy1 = nodes.reduce((s, p) => s + p.y, 0) / n
-  const out = new Map<string, { x: number, y: number }>()
-  for (const p of nodes) out.set(p.id, { x: snap(p.x - cx1), y: snap(p.y - cy1) })
+  function run(horizontal: boolean) {
+    const all = new Map<number, Placed>()
+    let offset = 0
+    let w = 0
+    let h = 0
+    for (const comp of comps) {
+      const g = layoutGroup(comp.ids, comp.layer, horizontal)
+      for (const [i, p] of g.pos) all.set(i, horizontal ? { x: p.x, y: p.y + offset } : { x: p.x + offset, y: p.y })
+      offset += (horizontal ? g.h : g.w) + GROUP_GAP
+      w = horizontal ? Math.max(w, g.w) : offset - GROUP_GAP
+      h = horizontal ? offset - GROUP_GAP : Math.max(h, g.h)
+    }
+    return { all, w, h }
+  }
+
+  const a = run(false)
+  const b = run(true)
+  const score = (r: { w: number, h: number }) => Math.abs(Math.log((r.w / r.h) / 1.5))
+  const best = score(b) < score(a) - 0.05 ? b : a
+
+  // centre on the origin, then snap
+  const cx = best.w / 2
+  const cy = best.h / 2
+  const out = new Map<string, Placed>()
+  for (const [i, p] of best.all) out.set(nodes[i]!.id, { x: snap(p.x - cx), y: snap(p.y - cy) })
   return out
 }

@@ -3,6 +3,7 @@ import type { DiagramNode, Entity, Generalization, Relationship } from '~/types/
 
 const { diagram, selectedId, mode, pendingId, isEmpty, find, select, addEntity, addRelationship, addGeneralization, connectNodes, addRelationshipBetween, addRelationshipFor, makeChildOf, addAttribute, remove, duplicate, addGeneralizationFor, autoLayout, runLayout } = useDiagram()
 const c = useErColors()
+const { byNode: warned } = useWarnings()
 const { label: key } = useShortcuts()
 const ctxNode = shallowRef<DiagramNode | null>(null)
 const ctxPoint = ref({ x: 0, y: 0 })
@@ -343,7 +344,15 @@ function exportSvg() {
   }
 }
 
-defineExpose({ center, fit, zoom, exportSvg })
+function focusNode(id: string) {
+  const n = find(id)
+  const r = svg.value?.getBoundingClientRect()
+  if (!n || !r) return
+  view.x = r.width / 2 - n.x * view.k
+  view.y = r.height / 2 - n.y * view.k
+}
+
+defineExpose({ center, fit, zoom, exportSvg, focusNode })
 onMounted(() => nextTick(fit))
 </script>
 
@@ -392,6 +401,12 @@ onMounted(() => nextTick(fit))
         </g>
         <circle v-if="isSel(d.g) || rubber?.target === d.g.id" data-ui :cx="d.g.x" :cy="d.g.y" r="14" fill="none" :stroke="rubber?.target === d.g.id ? c.warn : c.sel" stroke-width="2" stroke-dasharray="4 3" />
         <circle :cx="d.g.x" :cy="d.g.y" r="6" :fill="c.ink" />
+        <g v-if="warned[d.g.id]" data-ui :transform="`translate(${d.g.x + 14} ${d.g.y - 14})`">
+          <circle r="9" fill="#f59e0b" :stroke="c.paper" stroke-width="2" />
+          <text text-anchor="middle" dominant-baseline="central" font-size="12" font-weight="800" fill="#fff">!</text>
+          <title>{{ warned[d.g.id]!.map(w => w.message).join('\n') }}</title>
+        </g>
+
         <polygon v-if="d.arrow" :transform="`translate(${d.arrow.x} ${d.arrow.y}) rotate(${d.angle})`" points="0,0 -26,-14 -26,14" :fill="d.g.total ? c.ink : c.paper" :stroke="c.ink" stroke-width="2" stroke-linejoin="round" />
       </g>
 
@@ -401,6 +416,11 @@ onMounted(() => nextTick(fit))
         <rect v-if="isSel(e) || isPending(e) || rubber?.target === e.id" data-ui :x="outline(e).x" :y="outline(e).y" :width="outline(e).w" :height="outline(e).h" rx="3" fill="none" :stroke="isPending(e) || rubber?.target === e.id ? c.warn : c.sel" stroke-width="2" stroke-dasharray="5 3" />
         <rect :x="-nodeSize(e).w / 2" :y="-nodeSize(e).h / 2" :width="nodeSize(e).w" :height="nodeSize(e).h" :fill="c.paper" :stroke="c.ink" stroke-width="2" />
         <text text-anchor="middle" dominant-baseline="central" font-size="15" font-weight="700" :fill="c.ink">{{ e.name }}</text>
+        <g v-if="warned[e.id]" data-ui :transform="`translate(${nodeSize(e).w / 2} ${-nodeSize(e).h / 2})`">
+          <circle r="9" fill="#f59e0b" :stroke="c.paper" stroke-width="2" />
+          <text text-anchor="middle" dominant-baseline="central" font-size="12" font-weight="800" fill="#fff">!</text>
+          <title>{{ warned[e.id]!.map(w => w.message).join('\n') }}</title>
+        </g>
       </g>
 
       <!-- relationships -->
@@ -409,6 +429,11 @@ onMounted(() => nextTick(fit))
         <polygon v-if="isSel(r) || isPending(r) || rubber?.target === r.id" data-ui :points="outline(r).points" fill="none" :stroke="isPending(r) || rubber?.target === r.id ? c.warn : c.sel" stroke-width="2" stroke-dasharray="5 3" />
         <polygon :points="diamond(r)" :fill="c.paper" :stroke="c.ink" stroke-width="2" stroke-linejoin="round" />
         <text text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="600" :fill="c.ink">{{ r.name }}</text>
+        <g v-if="warned[r.id]" data-ui :transform="`translate(${nodeSize(r).w / 4} ${-nodeSize(r).h / 4})`">
+          <circle r="9" fill="#f59e0b" :stroke="c.paper" stroke-width="2" />
+          <text text-anchor="middle" dominant-baseline="central" font-size="12" font-weight="800" fill="#fff">!</text>
+          <title>{{ warned[r.id]!.map(w => w.message).join('\n') }}</title>
+        </g>
       </g>
 
       <!-- connect handle (selected node) and rubber band -->

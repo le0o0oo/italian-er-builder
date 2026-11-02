@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import type { Card } from '~/types/er'
 
-const { diagram, selected, remove, addLink } = useDiagram()
+const { diagram, selected, remove, addLink, select } = useDiagram()
 const { label } = useShortcuts()
+const { byNode } = useWarnings()
 const cards: Card[] = ['0,1', '1,1', '0,N', '1,N']
 const entityName = (id: string) => diagram.value.entities.find(e => e.id === id)?.name ?? '?'
 
@@ -34,25 +35,19 @@ function toggleChild(g: { childIds: string[] }, id: string, on: boolean | 'indet
 
 <template>
   <div class="space-y-5 p-4">
-    <div v-if="!selected" class="space-y-3 text-sm text-muted-foreground">
-      <p class="font-medium text-foreground">Nothing selected</p>
-      <p>Select an element to edit it. Drag elements to move them, drag the background to pan, scroll to zoom.</p>
-      <ul class="list-disc space-y-1 pl-4">
-        <li>Double-click the canvas to add an entity</li>
-        <li>Use <b>Connect</b> in the toolbar, then click a relationship and an entity to link them</li>
-        <li>Right-click any element or the background for quick actions</li>
-        <li>Keyboard shortcuts (rename, add attribute…) can be viewed and remapped from the keyboard icon in the toolbar</li>
-      </ul>
-    </div>
-
-    <template v-else>
+    <template v-if="selected">
       <div class="flex items-center justify-between">
         <p class="text-sm font-semibold capitalize">{{ selected.kind }}</p>
-        <Button size="xs" variant="destructive" @click="remove(selected.id)">
+        <Button size="xs" variant="destructive" class="ml-auto mr-1" @click="remove(selected.id)">
           <Icon name="lucide:trash-2" /> Delete
           <kbd v-if="label('delete')" class="ml-1 rounded bg-background/40 px-1 font-mono text-[10px]">{{ label('delete') }}</kbd>
         </Button>
+        <Button size="icon-xs" variant="ghost" title="Close (Esc)" @click="select(null)"><Icon name="lucide:x" /></Button>
       </div>
+
+      <ul v-if="byNode[selected.id]?.length" class="space-y-1 rounded-md bg-amber-500/10 px-2 py-1.5 text-xs text-amber-700 dark:text-amber-400">
+        <li v-for="w in byNode[selected.id]" :key="w.id" class="flex items-start gap-1.5"><Icon name="lucide:triangle-alert" class="mt-0.5 shrink-0" /> {{ w.message }}</li>
+      </ul>
 
       <!-- Entity -->
       <template v-if="selected.kind === 'entity'">

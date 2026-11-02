@@ -1,4 +1,5 @@
 import type { Card, Diagram, DiagramNode, Entity, Generalization, Relationship } from '~/types/er'
+import type { LayoutStrategy } from '~/utils/layout'
 
 const STORAGE_KEY = 'er-maker:diagram'
 export const uid = () => Math.random().toString(36).slice(2, 9)
@@ -212,11 +213,12 @@ export function useDiagram() {
 
   const autoLayout = useState('er-auto-layout', () => false)
   const fitRequest = useState('er-fit-request', () => 0)
+  const layoutStrategy = useState<LayoutStrategy>('er-layout-strategy', () => 'organic')
 
   let tween = 0
   /** Move every node to its computed position (animated). */
   function runLayout(opts: { fit?: boolean, animate?: boolean } = {}) {
-    const target = computeLayout(diagram.value)
+    const target = computeLayout(diagram.value, layoutStrategy.value)
     const all = [...diagram.value.entities, ...diagram.value.relationships, ...diagram.value.generalizations]
     const from = all.map(n => ({ n, x: n.x, y: n.y }))
     const token = ++tween
@@ -236,6 +238,12 @@ export function useDiagram() {
       else if (opts.fit) fitRequest.value++
     }
     requestAnimationFrame(step)
+  }
+  function setLayoutStrategy(v: LayoutStrategy) {
+    layoutStrategy.value = v
+    try { localStorage.setItem(`${STORAGE_KEY}:strategy`, v) }
+    catch { /* storage unavailable */ }
+    runLayout({ fit: true })
   }
   function setAutoLayout(on: boolean) {
     autoLayout.value = on
@@ -260,6 +268,11 @@ export function useDiagram() {
     history = []
     histIndex.value = -1
     record()
+    try {
+      const st = localStorage.getItem(`${STORAGE_KEY}:strategy`)
+      if (LAYOUT_STRATEGIES.some(x => x.id === st)) layoutStrategy.value = st as LayoutStrategy
+    }
+    catch { /* storage unavailable */ }
     try { autoLayout.value = localStorage.getItem(`${STORAGE_KEY}:auto`) === '1' }
     catch { /* storage unavailable */ }
     if (autoLayout.value) runLayout({ animate: false })
@@ -278,5 +291,5 @@ export function useDiagram() {
     }, { deep: true })
   }
 
-  return { diagram, selectedId, selected, mode, pendingId, isEmpty, find, select, setMode, addEntity, addRelationship, addGeneralization, addLink, connectNodes, addRelationshipBetween, addRelationshipFor, makeChildOf, addAttribute, remove, load, init, undo, redo, canUndo, canRedo, duplicate, addGeneralizationFor, autoLayout, setAutoLayout, runLayout, fitRequest }
+  return { diagram, selectedId, selected, mode, pendingId, isEmpty, find, select, setMode, addEntity, addRelationship, addGeneralization, addLink, connectNodes, addRelationshipBetween, addRelationshipFor, makeChildOf, addAttribute, remove, load, init, undo, redo, canUndo, canRedo, duplicate, addGeneralizationFor, autoLayout, setAutoLayout, layoutStrategy, setLayoutStrategy, runLayout, fitRequest }
 }

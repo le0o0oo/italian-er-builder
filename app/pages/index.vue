@@ -1,12 +1,19 @@
 <script setup lang="ts">
 import type { Diagram } from '~/types/er'
+import type { LayoutStrategy } from '~/utils/layout'
 
 const colorMode = useColorMode()
-const { diagram, selectedId, mode, pendingId, isEmpty, find, setMode, addEntity, addRelationship, addGeneralization, remove, load, init, undo, redo, canUndo, canRedo, duplicate, addAttribute, addGeneralizationFor, autoLayout, setAutoLayout, runLayout, fitRequest } = useDiagram()
-const canvas = ref<{ center: () => { x: number, y: number }, fit: () => void, zoom: (f: number) => void, exportSvg: () => { width: number, height: number, markup: string } }>()
+const { diagram, selectedId, mode, pendingId, isEmpty, find, setMode, addEntity, addRelationship, addGeneralization, remove, load, init, undo, redo, canUndo, canRedo, duplicate, selected, addAttribute, addGeneralizationFor, autoLayout, setAutoLayout, layoutStrategy, setLayoutStrategy, runLayout, fitRequest } = useDiagram()
+const canvas = ref<{ focusNode: (id: string) => void, center: () => { x: number, y: number }, fit: () => void, zoom: (f: number) => void, exportSvg: () => { width: number, height: number, markup: string } }>()
 const fileInput = ref<HTMLInputElement>()
 
-onMounted(() => { init(); shortcuts.load() })
+const { load: loadRules } = useWarnings()
+onMounted(() => { init(); shortcuts.load(); loadRules() })
+function focusFromWarning(id: string) {
+  setMode('select')
+  selectedId.value = id
+  canvas.value?.focusNode(id)
+}
 watch(fitRequest, () => nextTick(() => canvas.value?.fit()))
 
 function addAt(fn: (x: number, y: number) => void) {
@@ -53,6 +60,21 @@ async function onImport(ev: Event) {
   }
   catch { alert('This file is not a valid ER diagram.') }
 }
+
+const notice = ref('')
+let noticeTimer: ReturnType<typeof setTimeout> | undefined
+function flash(msg: string) {
+  notice.value = msg
+  clearTimeout(noticeTimer)
+  noticeTimer = setTimeout(() => (notice.value = ''), 2200)
+}
+const exportMermaid = () => download('diagram.mmd', new Blob([toMermaid(diagram.value)], { type: 'text/plain' }))
+async function copyMermaid() {
+  try { await navigator.clipboard.writeText(toMermaid(diagram.value)); flash('Mermaid copied to clipboard') }
+  catch { flash('Could not access the clipboard') }
+}
+
+const panel = 'flex items-center gap-1 rounded-xl border bg-background/80 p-1.5 shadow-lg backdrop-blur-md'
 
 function loadSample() {
   load(sampleDiagram())
@@ -128,78 +150,117 @@ const hint = computed(() => {
 
 <template>
   <TooltipProvider :delay-duration="300">
-  <div class="flex h-screen flex-col">
-    <header class="flex flex-wrap items-center gap-1.5 border-b px-3 py-2">
-      <div class="mr-2 flex items-center gap-2 font-semibold">
-        <Icon name="lucide:git-fork" class="size-5" /> ER Maker
+    <div class="relative h-screen overflow-hidden bg-background">
+      <div class="absolute inset-0">
+        <ClientOnly><DiagramCanvas ref="canvas" /></ClientOnly>
       </div>
 
-      <div class="flex items-center gap-1 rounded-lg border bg-muted/40 p-1">
-        <span class="px-1.5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Add</span>
-        <Tip text="Add an entity (or double-click the canvas)" shortcut="newEntity"><Button variant="outline" size="sm" @click="addAt(addEntity)"><Icon name="lucide:square" /> Entity</Button></Tip>
-        <Tip text="Add a relationship" shortcut="newRelationship"><Button variant="outline" size="sm" @click="addAt(addRelationship)"><Icon name="lucide:diamond" /> Relationship</Button></Tip>
-        <Tip text="Add a generalization" shortcut="newGeneralization"><Button variant="outline" size="sm" @click="addAt(addGeneralization)"><Icon name="lucide:triangle" /> Generalization</Button></Tip>
+      <!-- top left: brand + file menu -->
+      <div :class="[panel, 'absolute top-4 left-4']">
+        <DropdownMenu>
+          <DropdownMenuTrigger as-child>
+            <Button variant="ghost" class="gap-2 font-semibold">
+              <Icon name="lucide:git-fork" class="size-4" /> ER Maker <Icon name="lucide:chevron-down" class="size-3.5 opacity-60" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" class="w-52">
+            <DropdownMenuItem @select="loadSample"><Icon name="lucide:sparkles" /> Load example</DropdownMenuItem>
+            <DropdownMenuItem @select="fileInput?.click()"><Icon name="lucide:upload" /> Import JSON…</DropdownMenuItem>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger><Icon name="lucide:download" /> Export</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuItem @select="exportPng"><Icon name="lucide:image" /> PNG image</DropdownMenuItem>
+                <DropdownMenuItem @select="exportSvg"><Icon name="lucide:file-code" /> SVG vector</DropdownMenuItem>
+                <DropdownMenuItem @select="exportJson"><Icon name="lucide:braces" /> JSON (editable)</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem @select="exportMermaid"><Icon name="lucide:workflow" /> Mermaid file (.mmd)</DropdownMenuItem>
+                <DropdownMenuItem @select="copyMermaid"><Icon name="lucide:clipboard-copy" /> Copy as Mermaid</DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem variant="destructive" @select="clearAll"><Icon name="lucide:eraser" /> Clear diagram</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <input ref="fileInput" type="file" accept="application/json,.json" class="hidden" @change="onImport">
       </div>
 
-      <div class="flex items-center gap-1 rounded-lg border bg-muted/40 p-1">
-        <span class="px-1.5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Layout</span>
-        <Tip text="Arrange all nodes once" shortcut="arrange"><Button variant="outline" size="sm" @click="runLayout({ fit: true })"><Icon name="lucide:wand-sparkles" /> Arrange</Button></Tip>
-        <Tip text="Keep the layout automatic (disables dragging)" shortcut="toggleAuto">
-          <label class="flex cursor-pointer items-center gap-1.5 px-1.5 text-sm">
-            <Switch :model-value="autoLayout" @update:model-value="setAutoLayout($event === true)" /> Auto
-          </label>
+      <!-- top center: tools -->
+      <div :class="[panel, 'absolute top-4 left-1/2 -translate-x-1/2']">
+        <Tip text="Add an entity (or double-click the canvas)" shortcut="newEntity">
+          <Button variant="ghost" @click="addAt(addEntity)"><Icon name="lucide:square" /><span class="hidden lg:inline">Entity</span></Button>
+        </Tip>
+        <Tip text="Add a relationship" shortcut="newRelationship">
+          <Button variant="ghost" @click="addAt(addRelationship)"><Icon name="lucide:diamond" /><span class="hidden lg:inline">Relationship</span></Button>
+        </Tip>
+        <Tip text="Add a generalization" shortcut="newGeneralization">
+          <Button variant="ghost" @click="addAt(addGeneralization)"><Icon name="lucide:triangle" /><span class="hidden lg:inline">Generalization</span></Button>
+        </Tip>
+        <Separator orientation="vertical" class="mx-0.5 h-5" />
+        <DropdownMenu>
+          <DropdownMenuTrigger as-child>
+            <Button :variant="autoLayout ? 'secondary' : 'ghost'" title="Layout options">
+              <Icon name="lucide:wand-sparkles" /><span class="hidden lg:inline">Layout</span>
+              <span v-if="autoLayout" class="size-1.5 rounded-full bg-emerald-500" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="center" class="w-60">
+            <DropdownMenuItem @select="runLayout({ fit: true })">
+              <Icon name="lucide:wand-sparkles" /> Arrange now <DropdownMenuShortcut>{{ shortcuts.label('arrange') }}</DropdownMenuShortcut>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel class="text-xs text-muted-foreground">Strategy</DropdownMenuLabel>
+            <DropdownMenuRadioGroup :model-value="layoutStrategy" @update:model-value="setLayoutStrategy($event as LayoutStrategy)">
+              <DropdownMenuRadioItem v-for="st in LAYOUT_STRATEGIES" :key="st.id" :value="st.id">
+                <span class="flex flex-col"><span>{{ st.label }}</span><span class="text-xs text-muted-foreground">{{ st.hint }}</span></span>
+              </DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuCheckboxItem :model-value="autoLayout" @update:model-value="setAutoLayout($event === true)">
+              Auto-arrange <DropdownMenuShortcut>{{ shortcuts.label('toggleAuto') }}</DropdownMenuShortcut>
+            </DropdownMenuCheckboxItem>
+            <p class="px-2 pb-1.5 text-xs text-muted-foreground">While on, nodes can't be dragged.</p>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <Separator orientation="vertical" class="mx-0.5 h-5" />
+        <Tip text="Undo" shortcut="undo"><Button variant="ghost" size="icon" :disabled="!canUndo" @click="undo"><Icon name="lucide:undo-2" /></Button></Tip>
+        <Tip text="Redo" shortcut="redo"><Button variant="ghost" size="icon" :disabled="!canRedo" @click="redo"><Icon name="lucide:redo-2" /></Button></Tip>
+      </div>
+
+      <!-- top right -->
+      <div :class="[panel, 'absolute top-4 right-4']">
+        <WarningsPanel @focus="focusFromWarning" />
+        <Tip text="Keyboard shortcuts"><Button variant="ghost" size="icon" @click="shortcutsOpen = true"><Icon name="lucide:keyboard" /></Button></Tip>
+        <Tip text="Toggle theme">
+          <Button variant="ghost" size="icon" aria-label="Toggle theme" @click="colorMode.preference = colorMode.value === 'dark' ? 'light' : 'dark'">
+            <ClientOnly><Icon :name="colorMode.value === 'dark' ? 'lucide:sun' : 'lucide:moon'" /></ClientOnly>
+          </Button>
         </Tip>
       </div>
 
-      <div class="flex items-center">
-        <Tip text="Undo" shortcut="undo"><Button variant="ghost" size="icon-sm" :disabled="!canUndo" @click="undo"><Icon name="lucide:undo-2" /></Button></Tip>
-        <Tip text="Redo" shortcut="redo"><Button variant="ghost" size="icon-sm" :disabled="!canRedo" @click="redo"><Icon name="lucide:redo-2" /></Button></Tip>
-        <Separator orientation="vertical" class="mx-1 h-5" />
-        <Tip text="Zoom out (or scroll)"><Button variant="ghost" size="icon-sm" @click="canvas?.zoom(1 / 1.25)"><Icon name="lucide:zoom-out" /></Button></Tip>
-        <Tip text="Zoom in (or scroll)"><Button variant="ghost" size="icon-sm" @click="canvas?.zoom(1.25)"><Icon name="lucide:zoom-in" /></Button></Tip>
-        <Tip text="Fit diagram" shortcut="fit"><Button variant="ghost" size="icon-sm" @click="canvas?.fit()"><Icon name="lucide:maximize" /></Button></Tip>
-      </div>
-
-      <div class="ml-auto flex items-center gap-1.5">
-        <Tip text="Keyboard shortcuts"><Button variant="ghost" size="icon-sm" @click="shortcutsOpen = true"><Icon name="lucide:keyboard" /></Button></Tip>
-        <Button variant="ghost" size="sm" @click="loadSample"><Icon name="lucide:sparkles" /> Example</Button>
-        <Button variant="ghost" size="sm" @click="fileInput?.click()"><Icon name="lucide:upload" /> Import</Button>
-        <input ref="fileInput" type="file" accept="application/json,.json" class="hidden" @change="onImport">
-        <DropdownMenu>
-          <DropdownMenuTrigger as-child>
-            <Button variant="outline" size="sm"><Icon name="lucide:download" /> Export</Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem @click="exportPng">PNG image</DropdownMenuItem>
-            <DropdownMenuItem @click="exportSvg">SVG vector</DropdownMenuItem>
-            <DropdownMenuItem @click="exportJson">JSON (editable)</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <Button variant="ghost" size="icon-sm" title="Clear diagram" @click="clearAll"><Icon name="lucide:eraser" /></Button>
-        <Button variant="outline" size="icon-sm" aria-label="Toggle theme" @click="colorMode.preference = colorMode.value === 'dark' ? 'light' : 'dark'">
-          <ClientOnly><Icon :name="colorMode.value === 'dark' ? 'lucide:sun' : 'lucide:moon'" /></ClientOnly>
-        </Button>
-      </div>
-    </header>
-
-    <div class="flex min-h-0 flex-1">
-      <main class="relative min-w-0 flex-1">
-        <ClientOnly>
-          <DiagramCanvas ref="canvas" />
-        </ClientOnly>
-        <div v-if="keyTips.length" class="pointer-events-none absolute bottom-3 left-3 flex max-w-[90%] flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-background/90 px-3 py-1.5 text-xs text-muted-foreground shadow-sm ring-1 ring-border">
-          <span v-if="selectedId" class="flex items-center gap-1"><span class="inline-flex size-3.5 items-center justify-center rounded-full bg-blue-500 text-[10px] leading-none text-white">+</span> Drag to connect</span>
-          <span v-for="t in keyTips" :key="t.id" class="flex items-center gap-1">
-            <kbd class="rounded border bg-muted px-1 py-0.5 font-mono text-[10px] text-foreground">{{ t.key }}</kbd> {{ t.name }}
-          </span>
-        </div>
-        <div v-if="hint" class="absolute top-3 left-1/2 -translate-x-1/2 rounded-full bg-neutral-900 px-4 py-1.5 text-sm text-white shadow-lg">{{ hint }}</div>
-      </main>
-      <aside class="w-80 shrink-0 overflow-y-auto border-l">
+      <!-- inspector: only while something is selected -->
+      <aside v-if="selected" class="absolute top-[4.75rem] right-4 max-h-[calc(100%-6.5rem)] w-80 overflow-y-auto rounded-xl border bg-background/85 shadow-lg backdrop-blur-md">
         <Inspector />
       </aside>
+
+      <!-- bottom left: zoom -->
+      <div :class="[panel, 'absolute bottom-4 left-4']">
+        <Tip text="Zoom out (or scroll)" side="top"><Button variant="ghost" size="icon" @click="canvas?.zoom(1 / 1.25)"><Icon name="lucide:zoom-out" /></Button></Tip>
+        <Tip text="Zoom in (or scroll)" side="top"><Button variant="ghost" size="icon" @click="canvas?.zoom(1.25)"><Icon name="lucide:zoom-in" /></Button></Tip>
+        <Tip text="Fit diagram" shortcut="fit" side="top"><Button variant="ghost" size="icon" @click="canvas?.fit()"><Icon name="lucide:maximize" /></Button></Tip>
+      </div>
+
+      <!-- bottom center: contextual shortcut tips -->
+      <div v-if="keyTips.length" :class="[panel, 'pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 gap-x-3 px-3 text-xs text-muted-foreground']">
+        <span v-if="selectedId" class="flex items-center gap-1"><span class="inline-flex size-4 items-center justify-center rounded-full bg-blue-500 text-[10px] leading-none text-white">+</span> Drag to connect</span>
+        <span v-for="t in keyTips" :key="t.id" class="flex items-center gap-1">
+          <kbd class="rounded border bg-muted px-1 py-0.5 font-mono text-[10px] text-foreground">{{ t.key }}</kbd> {{ t.name }}
+        </span>
+      </div>
+
+      <!-- transient messages -->
+      <div v-if="hint || notice" :class="[panel, 'pointer-events-none absolute top-[4.75rem] left-1/2 -translate-x-1/2 bg-neutral-900/90 px-4 text-sm text-white']">{{ hint || notice }}</div>
+
+      <ShortcutsDialog v-model:open="shortcutsOpen" />
     </div>
-  <ShortcutsDialog v-model:open="shortcutsOpen" />
-  </div>
   </TooltipProvider>
 </template>
