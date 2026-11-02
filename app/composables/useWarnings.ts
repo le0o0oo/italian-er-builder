@@ -4,10 +4,11 @@ const STORAGE_KEY = 'er-maker:rules'
 
 export function useWarnings() {
   const { diagram } = useDiagram()
+  const { t } = useT()
   const enabled = useState('er-warn-on', () => true)
   const rules = useState<Record<string, boolean>>('er-warn-rules', defaultRules)
 
-  const warnings = computed(() => (enabled.value ? checkDiagram(diagram.value, rules.value) : []))
+  const warnings = computed(() => (enabled.value ? checkDiagram(diagram.value, rules.value, t) : []))
   const byNode = computed(() => {
     const m: Record<string, Warning[]> = {}
     for (const w of warnings.value) (m[w.nodeId] ??= []).push(w)

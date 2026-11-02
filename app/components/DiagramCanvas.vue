@@ -5,6 +5,7 @@ const { diagram, selectedId, mode, pendingId, isEmpty, find, select, addEntity, 
 const c = useErColors()
 const { byNode: warned } = useWarnings()
 const { label: key } = useShortcuts()
+const { t } = useT()
 const ctxNode = shallowRef<DiagramNode | null>(null)
 const ctxPoint = ref({ x: 0, y: 0 })
 
@@ -270,8 +271,8 @@ const gens = computed(() => diagram.value.generalizations.map((g) => {
       lx: g.x + cos * (startOffset + 48 + 14), ly: g.y + sin * (startOffset + 48 + 14),
     })
   }
-  if (!parent) stub('no parent', angle, 10)
-  if (!g.childIds.some(id => diagram.value.entities.some(e => e.id === id))) stub('no children', angle + Math.PI, 10)
+  if (!parent) stub(t('canvas.noParent'), angle, 10)
+  if (!g.childIds.some(id => diagram.value.entities.some(e => e.id === id))) stub(t('canvas.noChildren'), angle + Math.PI, 10)
   const lx = g.x - Math.sin(angle) * 20
   const ly = g.y + Math.cos(angle) * 20
   const notation = `(${g.total ? 't' : 'p'},${g.exclusive === false ? 's' : 'e'})`
@@ -441,7 +442,7 @@ onMounted(() => nextTick(fit))
         <line :x1="handle.node.x" :y1="handle.node.y" :x2="handle.x" :y2="handle.y" :stroke="c.sel" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.7" />
         <circle :cx="handle.x" :cy="handle.y" r="11" :fill="c.sel" />
         <path :d="`M${handle.x - 5} ${handle.y}h10M${handle.x} ${handle.y - 5}v10`" stroke="#fff" stroke-width="2" stroke-linecap="round" />
-        <title>Drag onto another element to connect</title>
+        <title>{{ t('canvas.handle') }}</title>
       </g>
       <line v-if="rubber" data-ui :x1="rubber.from.x" :y1="rubber.from.y" :x2="rubber.x" :y2="rubber.y" :stroke="rubber.target ? c.warn : c.sel" stroke-width="2" stroke-dasharray="6 4" pointer-events="none" />
     </g>
@@ -451,65 +452,65 @@ onMounted(() => nextTick(fit))
   <ContextMenuContent class="w-56">
     <template v-if="ctxNode?.kind === 'entity' || ctxNode?.kind === 'relationship'">
       <ContextMenuLabel class="truncate">{{ ctxNode.name }}</ContextMenuLabel>
-      <ContextMenuItem @select="rename"><Icon name="lucide:pencil" /> Rename <ContextMenuShortcut>{{ key('rename') }}</ContextMenuShortcut></ContextMenuItem>
-      <ContextMenuItem @select="addAttribute(ctxNode)"><Icon name="lucide:circle-plus" /> Add attribute <ContextMenuShortcut>{{ key('addAttribute') }}</ContextMenuShortcut></ContextMenuItem>
+      <ContextMenuItem @select="rename"><Icon name="lucide:pencil" /> {{ t('ctx.rename') }} <ContextMenuShortcut>{{ key('rename') }}</ContextMenuShortcut></ContextMenuItem>
+      <ContextMenuItem @select="addAttribute(ctxNode)"><Icon name="lucide:circle-plus" /> {{ t('ctx.addAttribute') }} <ContextMenuShortcut>{{ key('addAttribute') }}</ContextMenuShortcut></ContextMenuItem>
       <ContextMenuSub v-if="ctxNode.kind === 'relationship'">
-        <ContextMenuSubTrigger :disabled="!diagram.entities.length" class="data-disabled:pointer-events-none data-disabled:opacity-40"><Icon name="lucide:cable" /> Connect to</ContextMenuSubTrigger>
+        <ContextMenuSubTrigger :disabled="!diagram.entities.length" class="data-disabled:pointer-events-none data-disabled:opacity-40"><Icon name="lucide:cable" /> {{ t('ctx.connectTo') }}</ContextMenuSubTrigger>
         <ContextMenuSubContent>
           <ContextMenuItem v-for="e in diagram.entities" :key="e.id" @select="connectNodes(ctxNode as Relationship, e)">{{ e.name }}</ContextMenuItem>
         </ContextMenuSubContent>
       </ContextMenuSub>
       <template v-else>
         <ContextMenuSub>
-          <ContextMenuSubTrigger :disabled="!diagram.relationships.length" class="data-disabled:pointer-events-none data-disabled:opacity-40"><Icon name="lucide:cable" /> Connect to relationship</ContextMenuSubTrigger>
+          <ContextMenuSubTrigger :disabled="!diagram.relationships.length" class="data-disabled:pointer-events-none data-disabled:opacity-40"><Icon name="lucide:cable" /> {{ t('ctx.connectToRel') }}</ContextMenuSubTrigger>
           <ContextMenuSubContent>
             <ContextMenuItem v-for="r in diagram.relationships" :key="r.id" @select="connectNodes(ctxNode, r)">{{ r.name }}</ContextMenuItem>
           </ContextMenuSubContent>
         </ContextMenuSub>
         <ContextMenuSub>
-          <ContextMenuSubTrigger :disabled="!diagram.generalizations.length" class="data-disabled:pointer-events-none data-disabled:opacity-40"><Icon name="lucide:triangle" /> Attach to generalization</ContextMenuSubTrigger>
+          <ContextMenuSubTrigger :disabled="!diagram.generalizations.length" class="data-disabled:pointer-events-none data-disabled:opacity-40"><Icon name="lucide:triangle" /> {{ t('ctx.attachGen') }}</ContextMenuSubTrigger>
           <ContextMenuSubContent>
             <ContextMenuItem v-for="(g, i) in diagram.generalizations" :key="g.id" @select="connectNodes(ctxNode, g)">
-              Generalization {{ i + 1 }}{{ g.parentId ? '' : ' (as parent)' }}
+              {{ t('ctx.genN', { n: i + 1 }) }}{{ g.parentId ? '' : t('ctx.asParent') }}
             </ContextMenuItem>
           </ContextMenuSubContent>
         </ContextMenuSub>
-        <ContextMenuItem @select="addRelationshipFor(ctxNode.id)"><Icon name="lucide:diamond" /> New relationship</ContextMenuItem>
-        <ContextMenuItem @select="addGeneralizationFor(ctxNode.id)"><Icon name="lucide:triangle" /> New generalization <ContextMenuShortcut>{{ key('addGeneralization') }}</ContextMenuShortcut></ContextMenuItem>
+        <ContextMenuItem @select="addRelationshipFor(ctxNode.id)"><Icon name="lucide:diamond" /> {{ t('ctx.newRel') }}</ContextMenuItem>
+        <ContextMenuItem @select="addGeneralizationFor(ctxNode.id)"><Icon name="lucide:triangle" /> {{ t('ctx.newGen') }} <ContextMenuShortcut>{{ key('addGeneralization') }}</ContextMenuShortcut></ContextMenuItem>
       </template>
       <ContextMenuSeparator />
-      <ContextMenuItem @select="duplicate(ctxNode.id)"><Icon name="lucide:copy" /> Duplicate <ContextMenuShortcut>{{ key('duplicate') }}</ContextMenuShortcut></ContextMenuItem>
-      <ContextMenuItem variant="destructive" @select="remove(ctxNode.id)"><Icon name="lucide:trash-2" /> Delete <ContextMenuShortcut>{{ key('delete') }}</ContextMenuShortcut></ContextMenuItem>
+      <ContextMenuItem @select="duplicate(ctxNode.id)"><Icon name="lucide:copy" /> {{ t('ctx.duplicate') }} <ContextMenuShortcut>{{ key('duplicate') }}</ContextMenuShortcut></ContextMenuItem>
+      <ContextMenuItem variant="destructive" @select="remove(ctxNode.id)"><Icon name="lucide:trash-2" /> {{ t('ctx.delete') }} <ContextMenuShortcut>{{ key('delete') }}</ContextMenuShortcut></ContextMenuItem>
     </template>
 
     <template v-else-if="ctxNode?.kind === 'generalization'">
-      <ContextMenuLabel>Generalization</ContextMenuLabel>
+      <ContextMenuLabel>{{ t('ctx.generalization') }}</ContextMenuLabel>
       <ContextMenuItem @select="(ctxNode as Generalization).total = !(ctxNode as Generalization).total">
-        <Icon name="lucide:arrow-left-right" /> Make {{ (ctxNode as Generalization).total ? 'partial' : 'total' }}
+        <Icon name="lucide:arrow-left-right" /> {{ (ctxNode as Generalization).total ? t('ctx.makePartial') : t('ctx.makeTotal') }}
       </ContextMenuItem>
       <ContextMenuItem @select="(ctxNode as Generalization).exclusive = (ctxNode as Generalization).exclusive === false">
-        <Icon name="lucide:arrow-left-right" /> Make {{ (ctxNode as Generalization).exclusive === false ? 'exclusive' : 'overlapping' }}
+        <Icon name="lucide:arrow-left-right" /> {{ (ctxNode as Generalization).exclusive === false ? t('ctx.makeExclusive') : t('ctx.makeOverlapping') }}
       </ContextMenuItem>
       <ContextMenuSub>
-        <ContextMenuSubTrigger :disabled="!diagram.entities.length" class="data-disabled:pointer-events-none data-disabled:opacity-40"><Icon name="lucide:cable" /> Set parent / add child</ContextMenuSubTrigger>
+        <ContextMenuSubTrigger :disabled="!diagram.entities.length" class="data-disabled:pointer-events-none data-disabled:opacity-40"><Icon name="lucide:cable" /> {{ t('ctx.setParent') }}</ContextMenuSubTrigger>
         <ContextMenuSubContent>
           <ContextMenuItem v-for="e in diagram.entities" :key="e.id" @select="connectNodes(ctxNode, e)">
-            {{ e.name }}{{ (ctxNode as Generalization).parentId ? '' : ' (as parent)' }}
+            {{ e.name }}{{ (ctxNode as Generalization).parentId ? '' : t('ctx.asParent') }}
           </ContextMenuItem>
         </ContextMenuSubContent>
       </ContextMenuSub>
       <ContextMenuSeparator />
-      <ContextMenuItem variant="destructive" @select="remove(ctxNode.id)"><Icon name="lucide:trash-2" /> Delete <ContextMenuShortcut>{{ key('delete') }}</ContextMenuShortcut></ContextMenuItem>
+      <ContextMenuItem variant="destructive" @select="remove(ctxNode.id)"><Icon name="lucide:trash-2" /> {{ t('ctx.delete') }} <ContextMenuShortcut>{{ key('delete') }}</ContextMenuShortcut></ContextMenuItem>
     </template>
 
     <template v-else>
-      <ContextMenuLabel>Add here</ContextMenuLabel>
-      <ContextMenuItem @select="addEntity(ctxPoint.x, ctxPoint.y)"><Icon name="lucide:square" /> Entity</ContextMenuItem>
-      <ContextMenuItem @select="addRelationship(ctxPoint.x, ctxPoint.y)"><Icon name="lucide:diamond" /> Relationship</ContextMenuItem>
-      <ContextMenuItem @select="addGeneralization(ctxPoint.x, ctxPoint.y)"><Icon name="lucide:triangle" /> Generalization</ContextMenuItem>
+      <ContextMenuLabel>{{ t('ctx.addHere') }}</ContextMenuLabel>
+      <ContextMenuItem @select="addEntity(ctxPoint.x, ctxPoint.y)"><Icon name="lucide:square" /> {{ t('tool.entity') }}</ContextMenuItem>
+      <ContextMenuItem @select="addRelationship(ctxPoint.x, ctxPoint.y)"><Icon name="lucide:diamond" /> {{ t('tool.relationship') }}</ContextMenuItem>
+      <ContextMenuItem @select="addGeneralization(ctxPoint.x, ctxPoint.y)"><Icon name="lucide:triangle" /> {{ t('tool.generalization') }}</ContextMenuItem>
       <ContextMenuSeparator />
-      <ContextMenuItem @select="runLayout({ fit: true })"><Icon name="lucide:wand-sparkles" /> Auto-arrange</ContextMenuItem>
-      <ContextMenuItem @select="fit"><Icon name="lucide:maximize" /> Fit diagram</ContextMenuItem>
+      <ContextMenuItem @select="runLayout({ fit: true })"><Icon name="lucide:wand-sparkles" /> {{ t('ctx.arrange') }}</ContextMenuItem>
+      <ContextMenuItem @select="fit"><Icon name="lucide:maximize" /> {{ t('ctx.fit') }}</ContextMenuItem>
     </template>
   </ContextMenuContent>
   </ContextMenu>
@@ -520,23 +521,23 @@ onMounted(() => nextTick(fit))
     </PopoverAnchor>
     <PopoverContent v-if="choice" class="w-72 space-y-1 p-2" align="start" @open-auto-focus.prevent>
       <p class="px-2 py-1 text-xs font-medium text-muted-foreground">
-        Connect “{{ choice.a.name }}” and “{{ choice.b.name }}”
+        {{ t('choice.title', { a: choice.a.name, b: choice.b.name }) }}
       </p>
       <Button variant="ghost" class="h-auto w-full justify-start py-2 text-left whitespace-normal" @click="addRelationshipBetween(choice.a, choice.b); choice = null">
-        <Icon name="lucide:diamond" /> New relationship between them
+        <Icon name="lucide:diamond" /> {{ t('choice.newRel') }}
       </Button>
       <Button variant="ghost" class="h-auto w-full justify-start py-2 text-left whitespace-normal" @click="makeChildOf(choice.a, choice.b); choice = null">
-        <Icon name="lucide:triangle" /> “{{ choice.a.name }}” is a child of “{{ choice.b.name }}”
+        <Icon name="lucide:triangle" /> {{ t('choice.childOf', { a: choice.a.name, b: choice.b.name }) }}
       </Button>
       <Button variant="ghost" class="h-auto w-full justify-start py-2 text-left whitespace-normal" @click="makeChildOf(choice.b, choice.a); choice = null">
-        <Icon name="lucide:triangle" /> “{{ choice.b.name }}” is a child of “{{ choice.a.name }}”
+        <Icon name="lucide:triangle" /> {{ t('choice.childOf', { a: choice.b.name, b: choice.a.name }) }}
       </Button>
     </PopoverContent>
   </Popover>
 
   <div v-if="isEmpty" class="pointer-events-none absolute inset-0 flex items-center justify-center">
     <p class="rounded-lg bg-background/90 px-4 py-3 text-sm text-muted-foreground shadow-sm ring-1 ring-border">
-      Double-click the canvas or use the Add buttons to create your first entity.
+      {{ t('canvas.empty') }}
     </p>
   </div>
 </template>

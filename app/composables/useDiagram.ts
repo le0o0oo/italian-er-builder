@@ -1,33 +1,34 @@
 import type { Card, Diagram, DiagramNode, Entity, Generalization, Relationship } from '~/types/er'
 import type { LayoutStrategy } from '~/utils/layout'
+import type { Translate } from '~/utils/i18n'
 
 const STORAGE_KEY = 'er-maker:diagram'
 export const uid = () => Math.random().toString(36).slice(2, 9)
 
 export const emptyDiagram = (): Diagram => ({ entities: [], relationships: [], generalizations: [] })
 
-export function sampleDiagram(): Diagram {
+export function sampleDiagram(t: Translate): Diagram {
   const a = (name: string, identifier = false, card: Card = '1,1') => ({ id: uid(), name, identifier, card })
-  const emp: Entity = { id: 'emp', kind: 'entity', name: 'Employee', x: 0, y: 0, attributes: [a('SSN', true), a('Name'), a('Surname'), a('Phone', false, '0,N')] }
-  const dep: Entity = { id: 'dep', kind: 'entity', name: 'Department', x: 528, y: 0, attributes: [a('Name', true), a('Phone')] }
-  const prj: Entity = { id: 'prj', kind: 'entity', name: 'Project', x: 528, y: 288, attributes: [a('Code', true), a('Budget')] }
-  const mgr: Entity = { id: 'mgr', kind: 'entity', name: 'Manager', x: 0, y: -228, attributes: [] }
+  const emp: Entity = { id: 'emp', kind: 'entity', name: t('sample.emp'), x: 0, y: 0, attributes: [a(t('sample.ssn'), true), a(t('sample.name')), a(t('sample.surname')), a(t('sample.phone'), false, '0,N')] }
+  const dep: Entity = { id: 'dep', kind: 'entity', name: t('sample.dep'), x: 528, y: 0, attributes: [a(t('sample.name'), true), a(t('sample.phone'))] }
+  const prj: Entity = { id: 'prj', kind: 'entity', name: t('sample.prj'), x: 528, y: 288, attributes: [a(t('sample.code'), true), a(t('sample.budget'))] }
+  const mgr: Entity = { id: 'mgr', kind: 'entity', name: t('sample.mgr'), x: 0, y: -228, attributes: [] }
   const worksIn: Relationship = {
-    id: 'wi', kind: 'relationship', name: 'Works in', x: 264, y: 0, attributes: [a('Since')],
+    id: 'wi', kind: 'relationship', name: t('sample.worksIn'), x: 264, y: 0, attributes: [a(t('sample.since'))],
     links: [{ id: uid(), entityId: 'emp', card: '1,1', identifying: false }, { id: uid(), entityId: 'dep', card: '1,N', identifying: false }],
   }
   const assigned: Relationship = {
-    id: 'as', kind: 'relationship', name: 'Assigned to', x: 264, y: 288, attributes: [a('Hours')],
+    id: 'as', kind: 'relationship', name: t('sample.assigned'), x: 264, y: 288, attributes: [a(t('sample.hours'))],
     links: [{ id: uid(), entityId: 'emp', card: '0,N', identifying: false }, { id: uid(), entityId: 'prj', card: '1,N', identifying: false }],
   }
   // Identified by two relationships (+ one attribute): the composite-key case.
-  const alloc: Entity = { id: 'alc', kind: 'entity', name: 'Allocation', x: 1056, y: 144, attributes: [a('Date', true), a('Quantity')] }
+  const alloc: Entity = { id: 'alc', kind: 'entity', name: t('sample.alloc'), x: 1056, y: 144, attributes: [a(t('sample.date'), true), a(t('sample.quantity'))] }
   const requestedBy: Relationship = {
-    id: 'rb', kind: 'relationship', name: 'Requested by', x: 792, y: 0, attributes: [],
+    id: 'rb', kind: 'relationship', name: t('sample.requestedBy'), x: 792, y: 0, attributes: [],
     links: [{ id: uid(), entityId: 'dep', card: '0,N', identifying: false }, { id: uid(), entityId: 'alc', card: '1,1', identifying: true }],
   }
   const chargedTo: Relationship = {
-    id: 'ct', kind: 'relationship', name: 'Charged to', x: 792, y: 288, attributes: [],
+    id: 'ct', kind: 'relationship', name: t('sample.chargedTo'), x: 792, y: 288, attributes: [],
     links: [{ id: uid(), entityId: 'prj', card: '0,N', identifying: false }, { id: uid(), entityId: 'alc', card: '1,1', identifying: true }],
   }
   const gen: Generalization = { id: 'gen', kind: 'generalization', x: 0, y: -120, parentId: 'emp', childIds: ['mgr'], total: false, exclusive: true }
@@ -42,6 +43,7 @@ let restoring = false
 let timer: ReturnType<typeof setTimeout> | undefined
 
 export function useDiagram() {
+  const { t } = useT()
   const diagram = useState<Diagram>('er-diagram', emptyDiagram)
   const selectedId = useState<string | null>('er-selected', () => null)
   const mode = useState<'select' | 'link'>('er-mode', () => 'select')
@@ -59,12 +61,12 @@ export function useDiagram() {
   const setMode = (m: 'select' | 'link') => { mode.value = m; pendingId.value = null }
 
   function addEntity(x: number, y: number) {
-    const n: Entity = { id: uid(), kind: 'entity', name: `Entity ${diagram.value.entities.length + 1}`, x: snap(x), y: snap(y), attributes: [] }
+    const n: Entity = { id: uid(), kind: 'entity', name: `${t('default.entity')} ${diagram.value.entities.length + 1}`, x: snap(x), y: snap(y), attributes: [] }
     diagram.value.entities.push(n)
     select(n.id)
   }
   function addRelationship(x: number, y: number) {
-    const n: Relationship = { id: uid(), kind: 'relationship', name: `Relationship ${diagram.value.relationships.length + 1}`, x: snap(x), y: snap(y), attributes: [], links: [] }
+    const n: Relationship = { id: uid(), kind: 'relationship', name: `${t('default.relationship')} ${diagram.value.relationships.length + 1}`, x: snap(x), y: snap(y), attributes: [], links: [] }
     diagram.value.relationships.push(n)
     select(n.id)
   }
@@ -102,7 +104,7 @@ export function useDiagram() {
   /** New relationship placed between two entities and linked to both. */
   function addRelationshipBetween(a: Entity, b: Entity) {
     const n: Relationship = {
-      id: uid(), kind: 'relationship', name: `Relationship ${diagram.value.relationships.length + 1}`,
+      id: uid(), kind: 'relationship', name: `${t('default.relationship')} ${diagram.value.relationships.length + 1}`,
       x: snap((a.x + b.x) / 2), y: snap((a.y + b.y) / 2), attributes: [],
       links: [{ id: uid(), entityId: a.id, card: '0,N', identifying: false }, { id: uid(), entityId: b.id, card: '0,N', identifying: false }],
     }
@@ -114,7 +116,7 @@ export function useDiagram() {
     const e = diagram.value.entities.find(x => x.id === entityId)
     if (!e) return
     const n: Relationship = {
-      id: uid(), kind: 'relationship', name: `Relationship ${diagram.value.relationships.length + 1}`,
+      id: uid(), kind: 'relationship', name: `${t('default.relationship')} ${diagram.value.relationships.length + 1}`,
       x: snap(e.x + nodeSize(e).w / 2 + 144), y: snap(e.y), attributes: [],
       links: [{ id: uid(), entityId: e.id, card: '0,N', identifying: false }],
     }
@@ -132,7 +134,7 @@ export function useDiagram() {
     select(g.id)
   }
   function addAttribute(node: Entity | Relationship) {
-    const a = { id: uid(), name: `attribute${node.attributes.length + 1}`, identifier: false, card: '1,1' as Card }
+    const a = { id: uid(), name: `${t('default.attribute')}${node.attributes.length + 1}`, identifier: false, card: '1,1' as Card }
     node.attributes.push(a)
     // Let the user type the name straight away.
     nextTick(() => setTimeout(() => {
@@ -193,7 +195,7 @@ export function useDiagram() {
     if (!n || n.kind === 'generalization') return
     const copy = clone(n)
     copy.id = uid()
-    copy.name = `${n.name} copy`
+    copy.name = `${n.name} ${t('default.copy')}`
     copy.x += 36
     copy.y += 36
     copy.attributes.forEach(a => (a.id = uid()))
@@ -262,9 +264,9 @@ export function useDiagram() {
   function init() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY)
-      diagram.value = raw ? JSON.parse(raw) : sampleDiagram()
+      diagram.value = raw ? JSON.parse(raw) : sampleDiagram(t)
     }
-    catch { diagram.value = sampleDiagram() }
+    catch { diagram.value = sampleDiagram(t) }
     history = []
     histIndex.value = -1
     record()

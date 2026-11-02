@@ -4,6 +4,7 @@ import type { Card } from '~/types/er'
 const { diagram, selected, remove, addLink, select } = useDiagram()
 const { label } = useShortcuts()
 const { byNode } = useWarnings()
+const { t } = useT()
 const cards: Card[] = ['0,1', '1,1', '0,N', '1,N']
 const entityName = (id: string) => diagram.value.entities.find(e => e.id === id)?.name ?? '?'
 
@@ -37,12 +38,12 @@ function toggleChild(g: { childIds: string[] }, id: string, on: boolean | 'indet
   <div class="space-y-5 p-4">
     <template v-if="selected">
       <div class="flex items-center justify-between">
-        <p class="text-sm font-semibold capitalize">{{ selected.kind }}</p>
+        <p class="text-sm font-semibold">{{ t(`insp.${selected.kind}`) }}</p>
         <Button size="xs" variant="destructive" class="ml-auto mr-1" @click="remove(selected.id)">
-          <Icon name="lucide:trash-2" /> Delete
+          <Icon name="lucide:trash-2" /> {{ t('insp.delete') }}
           <kbd v-if="label('delete')" class="ml-1 rounded bg-background/40 px-1 font-mono text-[10px]">{{ label('delete') }}</kbd>
         </Button>
-        <Button size="icon-xs" variant="ghost" title="Close (Esc)" @click="select(null)"><Icon name="lucide:x" /></Button>
+        <Button size="icon-xs" variant="ghost" :title="t('insp.close')" @click="select(null)"><Icon name="lucide:x" /></Button>
       </div>
 
       <ul v-if="byNode[selected.id]?.length" class="space-y-1 rounded-md bg-amber-500/10 px-2 py-1.5 text-xs text-amber-700 dark:text-amber-400">
@@ -52,40 +53,40 @@ function toggleChild(g: { childIds: string[] }, id: string, on: boolean | 'indet
       <!-- Entity -->
       <template v-if="selected.kind === 'entity'">
         <div class="space-y-1.5">
-          <Label for="name">Name</Label>
+          <Label for="name">{{ t('insp.name') }}</Label>
           <Input id="name" v-model="selected.name" />
         </div>
         <AttributeList :node="selected" />
 
         <p class="rounded-md bg-muted px-2 py-1.5 text-xs">
-          <span class="font-medium">Primary key:</span>
+          <span class="font-medium">{{ t('insp.pk') }}</span>
           <span v-if="primaryKey"> {{ primaryKey }}</span>
-          <span v-else class="text-muted-foreground"> none — mark attributes with the key button</span>
-          <span v-if="primaryKey.includes('+')" class="block text-muted-foreground">Composite: the marked items together identify the entity (joined by a curve).</span>
+          <span v-else class="text-muted-foreground">{{ t('insp.pkNone') }}</span>
+          <span v-if="primaryKey.includes('+')" class="block text-muted-foreground">{{ t('insp.pkComposite') }}</span>
         </p>
 
         <div class="space-y-2">
-          <Label>Identified by relationships</Label>
-          <p v-if="!identifyingLinks.length" class="text-xs text-muted-foreground">Connect this entity to a relationship to use it as (part of) the identifier.</p>
+          <Label>{{ t('insp.identifiedBy') }}</Label>
+          <p v-if="!identifyingLinks.length" class="text-xs text-muted-foreground">{{ t('insp.identifiedByEmpty') }}</p>
           <label v-for="{ rel, link } in identifyingLinks" :key="link.id" class="flex items-center gap-2 text-sm">
             <Checkbox :model-value="link.identifying" @update:model-value="link.identifying = $event === true" />
             <span class="truncate">{{ rel.name }}</span>
             <span class="ml-auto text-xs text-muted-foreground">({{ link.card }})</span>
           </label>
-          <p class="text-xs text-muted-foreground">Tick several to make the relationships together (optionally with identifier attributes) the primary key — they're joined by a curve.</p>
+          <p class="text-xs text-muted-foreground">{{ t('insp.identifiedByHelp') }}</p>
         </div>
       </template>
 
       <!-- Relationship -->
       <template v-else-if="selected.kind === 'relationship'">
         <div class="space-y-1.5">
-          <Label for="name">Name</Label>
+          <Label for="name">{{ t('insp.name') }}</Label>
           <Input id="name" v-model="selected.name" />
         </div>
 
         <div class="space-y-2">
-          <Label>Connections (min, max)</Label>
-          <p v-if="!selected.links.length" class="text-xs text-muted-foreground">Not connected to any entity.</p>
+          <Label>{{ t('insp.connections') }}</Label>
+          <p v-if="!selected.links.length" class="text-xs text-muted-foreground">{{ t('insp.notConnected') }}</p>
           <div v-for="(l, i) in selected.links" :key="l.id" class="flex items-center gap-1">
             <span class="min-w-0 flex-1 truncate rounded-md bg-muted px-2 py-1.5 text-sm">{{ entityName(l.entityId) }}</span>
             <Select :model-value="l.card" @update:model-value="l.card = $event as Card">
@@ -94,16 +95,16 @@ function toggleChild(g: { childIds: string[] }, id: string, on: boolean | 'indet
                 <SelectItem v-for="c in cards" :key="c" :value="c">({{ c }})</SelectItem>
               </SelectContent>
             </Select>
-            <Button size="icon-sm" :variant="l.identifying ? 'default' : 'outline'" title="External identifier (filled dot)" @click="l.identifying = !l.identifying">
+            <Button size="icon-sm" :variant="l.identifying ? 'default' : 'outline'" :title="t('insp.externalId')" @click="l.identifying = !l.identifying">
               <Icon name="lucide:circle-dot" />
             </Button>
-            <Button size="icon-sm" variant="ghost" title="Remove connection" @click="selected.links.splice(i, 1)">
+            <Button size="icon-sm" variant="ghost" :title="t('insp.removeConnection')" @click="selected.links.splice(i, 1)">
               <Icon name="lucide:x" />
             </Button>
           </div>
           <div class="flex items-center gap-1">
             <Select v-model="newLinkEntity">
-              <SelectTrigger class="h-8 flex-1"><SelectValue placeholder="Connect an entity…" /></SelectTrigger>
+              <SelectTrigger class="h-8 flex-1"><SelectValue :placeholder="t('insp.connectEntity')" /></SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="e in diagram.entities" :key="e.id" :value="e.id">{{ e.name }}</SelectItem>
               </SelectContent>
@@ -112,7 +113,7 @@ function toggleChild(g: { childIds: string[] }, id: string, on: boolean | 'indet
               <Icon name="lucide:plus" />
             </Button>
           </div>
-          <p class="text-xs text-muted-foreground">Connect the same entity twice for a recursive relationship.</p>
+          <p class="text-xs text-muted-foreground">{{ t('insp.recursive') }}</p>
         </div>
 
         <AttributeList :node="selected" />
@@ -121,38 +122,38 @@ function toggleChild(g: { childIds: string[] }, id: string, on: boolean | 'indet
       <!-- Generalization -->
       <template v-else>
         <div class="space-y-1.5">
-          <Label>Parent entity</Label>
+          <Label>{{ t('insp.parent') }}</Label>
           <Select :model-value="selected.parentId ?? undefined" @update:model-value="selected.parentId = $event as string; selected.childIds = selected.childIds.filter(c => c !== $event)">
-            <SelectTrigger class="w-full"><SelectValue placeholder="Choose the parent…" /></SelectTrigger>
+            <SelectTrigger class="w-full"><SelectValue :placeholder="t('insp.chooseParent')" /></SelectTrigger>
             <SelectContent>
               <SelectItem v-for="e in diagram.entities" :key="e.id" :value="e.id">{{ e.name }}</SelectItem>
             </SelectContent>
           </Select>
         </div>
         <div class="space-y-1.5">
-          <Label>Coverage</Label>
+          <Label>{{ t('insp.coverage') }}</Label>
           <Select :model-value="selected.total ? 'total' : 'partial'" @update:model-value="selected.total = $event === 'total'">
             <SelectTrigger class="w-full"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="total">Total (t, filled arrow)</SelectItem>
-              <SelectItem value="partial">Partial (p, empty arrow)</SelectItem>
+              <SelectItem value="total">{{ t('insp.total') }}</SelectItem>
+              <SelectItem value="partial">{{ t('insp.partial') }}</SelectItem>
             </SelectContent>
           </Select>
         </div>
         <div class="space-y-1.5">
-          <Label>Overlap</Label>
+          <Label>{{ t('insp.overlap') }}</Label>
           <Select :model-value="selected.exclusive === false ? 's' : 'e'" @update:model-value="selected.exclusive = $event === 'e'">
             <SelectTrigger class="w-full"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="e">Exclusive (e): an instance is in at most one child</SelectItem>
-              <SelectItem value="s">Overlapping — sovrapposta (s)</SelectItem>
+              <SelectItem value="e">{{ t('insp.exclusive') }}</SelectItem>
+              <SelectItem value="s">{{ t('insp.overlapping') }}</SelectItem>
             </SelectContent>
           </Select>
-          <p class="text-xs text-muted-foreground">Notation shown on the diagram: ({{ selected.total ? 't' : 'p' }},{{ selected.exclusive === false ? 's' : 'e' }})</p>
+          <p class="text-xs text-muted-foreground">{{ t('insp.notation', { n: `(${selected.total ? 't' : 'p'},${selected.exclusive === false ? 's' : 'e'})` }) }}</p>
         </div>
         <div class="space-y-2">
-          <Label>Child entities</Label>
-          <p v-if="!diagram.entities.length" class="text-xs text-muted-foreground">Add entities first.</p>
+          <Label>{{ t('insp.children') }}</Label>
+          <p v-if="!diagram.entities.length" class="text-xs text-muted-foreground">{{ t('insp.addEntitiesFirst') }}</p>
           <label v-for="e in diagram.entities.filter(x => x.id !== selected!.parentId)" :key="e.id" class="flex items-center gap-2 text-sm">
             <Checkbox :model-value="(selected as any).childIds.includes(e.id)" @update:model-value="toggleChild(selected as any, e.id, $event)" />
             {{ e.name }}

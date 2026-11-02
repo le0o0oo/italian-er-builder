@@ -1,6 +1,26 @@
 <script setup lang="ts">
 import type { Diagram } from '~/types/er'
 import type { LayoutStrategy } from '~/utils/layout'
+import type { Locale } from '~/utils/i18n'
+
+const { t, locale } = useT()
+const { canonical } = useSeo({ title: () => t('seo.title'), description: () => t('seo.desc') })
+useHead({
+  script: [{
+    type: 'application/ld+json',
+    innerHTML: JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'WebApplication',
+      'name': 'ER Maker',
+      'url': canonical,
+      'applicationCategory': 'DeveloperApplication',
+      'operatingSystem': 'Any (web browser)',
+      'description': 'Free online editor for entity-relationship diagrams in the Italian notation, with auto layout, design warnings and export to PNG, SVG, JSON and Mermaid.',
+      'offers': { '@type': 'Offer', 'price': '0', 'priceCurrency': 'EUR' },
+      'featureList': ['Italian ER notation', '(min,max) cardinalities', 'Composite identifiers', 'Generalizations (t/p, e/s)', 'Auto layout strategies', 'Design rule warnings', 'Export to PNG, SVG, JSON and Mermaid'],
+    }),
+  }],
+})
 
 const colorMode = useColorMode()
 const { diagram, selectedId, mode, pendingId, isEmpty, find, setMode, addEntity, addRelationship, addGeneralization, remove, load, init, undo, redo, canUndo, canRedo, duplicate, selected, addAttribute, addGeneralizationFor, autoLayout, setAutoLayout, layoutStrategy, setLayoutStrategy, runLayout, fitRequest } = useDiagram()
@@ -58,7 +78,7 @@ async function onImport(ev: Event) {
     load(d)
     nextTick(() => canvas.value?.fit())
   }
-  catch { alert('This file is not a valid ER diagram.') }
+  catch { alert(t('alert.invalidFile')) }
 }
 
 const notice = ref('')
@@ -70,18 +90,18 @@ function flash(msg: string) {
 }
 const exportMermaid = () => download('diagram.mmd', new Blob([toMermaid(diagram.value)], { type: 'text/plain' }))
 async function copyMermaid() {
-  try { await navigator.clipboard.writeText(toMermaid(diagram.value)); flash('Mermaid copied to clipboard') }
-  catch { flash('Could not access the clipboard') }
+  try { await navigator.clipboard.writeText(toMermaid(diagram.value)); flash(t('notice.copied')) }
+  catch { flash(t('notice.clipboardFail')) }
 }
 
 const panel = 'flex items-center gap-1 rounded-xl border bg-background/80 p-1.5 shadow-lg backdrop-blur-md'
 
 function loadSample() {
-  load(sampleDiagram())
+  load(sampleDiagram(t))
   nextTick(() => canvas.value?.fit())
 }
 function clearAll() {
-  if (isEmpty.value || confirm('Delete the whole diagram?')) {
+  if (isEmpty.value || confirm(t('confirm.clear'))) {
     load(emptyDiagram())
     nextTick(() => canvas.value?.fit())
   }
@@ -134,23 +154,35 @@ const keyTips = computed(() => {
     : sel?.kind === 'relationship'
       ? ['rename', 'addAttribute', 'connect', 'duplicate', 'delete']
       : sel ? ['delete'] : ['newEntity', 'newRelationship', 'arrange', 'fit']
-  const names: Record<string, string> = Object.fromEntries(SHORTCUTS.map(x => [x.id, x.label]))
-  return ids.filter(id => keyLabel(id)).map(id => ({ id, key: keyLabel(id), name: names[id]! }))
+  return ids.filter(id => keyLabel(id)).map(id => ({ id, key: keyLabel(id), name: t(`shortcut.${id}`) }))
 })
 
 const hint = computed(() => {
   if (mode.value !== 'link') return ''
   const first = find(pendingId.value)
   if (!first) return ''
-  const name = first.kind === 'generalization' ? 'the generalization' : `“${first.name}”`
-  const target = first.kind === 'entity' ? 'a relationship or generalization' : first.kind === 'relationship' ? 'an entity' : 'an entity (parent first, then children)'
-  return `Connecting ${name}: now click ${target} — Esc to cancel`
+  const name = first.kind === 'generalization' ? t('hint.theGeneralization') : `“${first.name}”`
+  const target = t(`hint.target.${first.kind}`)
+  return t('hint.connecting', { name, target })
 })
 </script>
 
 <template>
   <TooltipProvider :delay-duration="300">
     <div class="relative h-screen overflow-hidden bg-background">
+      <!-- Crawlable, screen-reader friendly description of the app (the canvas itself is client-rendered). -->
+      <section class="sr-only" :aria-label="t('sr.about')">
+        <h1>{{ t('sr.h1') }}</h1>
+        <p>{{ t('sr.p') }}</p>
+        <ul>
+          <li>{{ t('sr.li1') }}</li>
+          <li>{{ t('sr.li2') }}</li>
+          <li>{{ t('sr.li3') }}</li>
+          <li>{{ t('sr.li4') }}</li>
+        </ul>
+        <NuxtLink to="/guide">{{ t('sr.guide') }}</NuxtLink>
+      </section>
+      <noscript><p>{{ t('sr.noscript') }}</p></noscript>
       <div class="absolute inset-0">
         <ClientOnly><DiagramCanvas ref="canvas" /></ClientOnly>
       </div>
@@ -164,21 +196,23 @@ const hint = computed(() => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" class="w-52">
-            <DropdownMenuItem @select="loadSample"><Icon name="lucide:sparkles" /> Load example</DropdownMenuItem>
-            <DropdownMenuItem @select="fileInput?.click()"><Icon name="lucide:upload" /> Import JSON…</DropdownMenuItem>
+            <DropdownMenuItem as-child><NuxtLink to="/guide"><Icon name="lucide:book-open" /> {{ t('menu.guide') }}</NuxtLink></DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem @select="loadSample"><Icon name="lucide:sparkles" /> {{ t('menu.example') }}</DropdownMenuItem>
+            <DropdownMenuItem @select="fileInput?.click()"><Icon name="lucide:upload" /> {{ t('menu.import') }}</DropdownMenuItem>
             <DropdownMenuSub>
-              <DropdownMenuSubTrigger><Icon name="lucide:download" /> Export</DropdownMenuSubTrigger>
+              <DropdownMenuSubTrigger><Icon name="lucide:download" /> {{ t('menu.export') }}</DropdownMenuSubTrigger>
               <DropdownMenuSubContent>
-                <DropdownMenuItem @select="exportPng"><Icon name="lucide:image" /> PNG image</DropdownMenuItem>
-                <DropdownMenuItem @select="exportSvg"><Icon name="lucide:file-code" /> SVG vector</DropdownMenuItem>
-                <DropdownMenuItem @select="exportJson"><Icon name="lucide:braces" /> JSON (editable)</DropdownMenuItem>
+                <DropdownMenuItem @select="exportPng"><Icon name="lucide:image" /> {{ t('menu.png') }}</DropdownMenuItem>
+                <DropdownMenuItem @select="exportSvg"><Icon name="lucide:file-code" /> {{ t('menu.svg') }}</DropdownMenuItem>
+                <DropdownMenuItem @select="exportJson"><Icon name="lucide:braces" /> {{ t('menu.json') }}</DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem @select="exportMermaid"><Icon name="lucide:workflow" /> Mermaid file (.mmd)</DropdownMenuItem>
-                <DropdownMenuItem @select="copyMermaid"><Icon name="lucide:clipboard-copy" /> Copy as Mermaid</DropdownMenuItem>
+                <DropdownMenuItem @select="exportMermaid"><Icon name="lucide:workflow" /> {{ t('menu.mermaid') }}</DropdownMenuItem>
+                <DropdownMenuItem @select="copyMermaid"><Icon name="lucide:clipboard-copy" /> {{ t('menu.copyMermaid') }}</DropdownMenuItem>
               </DropdownMenuSubContent>
             </DropdownMenuSub>
             <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" @select="clearAll"><Icon name="lucide:eraser" /> Clear diagram</DropdownMenuItem>
+            <DropdownMenuItem variant="destructive" @select="clearAll"><Icon name="lucide:eraser" /> {{ t('menu.clear') }}</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
         <input ref="fileInput" type="file" accept="application/json,.json" class="hidden" @change="onImport">
@@ -186,51 +220,63 @@ const hint = computed(() => {
 
       <!-- top center: tools -->
       <div :class="[panel, 'absolute top-4 left-1/2 -translate-x-1/2']">
-        <Tip text="Add an entity (or double-click the canvas)" shortcut="newEntity">
-          <Button variant="ghost" @click="addAt(addEntity)"><Icon name="lucide:square" /><span class="hidden lg:inline">Entity</span></Button>
+        <Tip :text="t('tip.addEntity')" shortcut="newEntity">
+          <Button variant="ghost" @click="addAt(addEntity)"><Icon name="lucide:square" /><span class="hidden lg:inline">{{ t('tool.entity') }}</span></Button>
         </Tip>
-        <Tip text="Add a relationship" shortcut="newRelationship">
-          <Button variant="ghost" @click="addAt(addRelationship)"><Icon name="lucide:diamond" /><span class="hidden lg:inline">Relationship</span></Button>
+        <Tip :text="t('tip.addRelationship')" shortcut="newRelationship">
+          <Button variant="ghost" @click="addAt(addRelationship)"><Icon name="lucide:diamond" /><span class="hidden lg:inline">{{ t('tool.relationship') }}</span></Button>
         </Tip>
-        <Tip text="Add a generalization" shortcut="newGeneralization">
-          <Button variant="ghost" @click="addAt(addGeneralization)"><Icon name="lucide:triangle" /><span class="hidden lg:inline">Generalization</span></Button>
+        <Tip :text="t('tip.addGeneralization')" shortcut="newGeneralization">
+          <Button variant="ghost" @click="addAt(addGeneralization)"><Icon name="lucide:triangle" /><span class="hidden lg:inline">{{ t('tool.generalization') }}</span></Button>
         </Tip>
         <Separator orientation="vertical" class="mx-0.5 h-5" />
         <DropdownMenu>
           <DropdownMenuTrigger as-child>
-            <Button :variant="autoLayout ? 'secondary' : 'ghost'" title="Layout options">
-              <Icon name="lucide:wand-sparkles" /><span class="hidden lg:inline">Layout</span>
+            <Button :variant="autoLayout ? 'secondary' : 'ghost'" :title="t('layout.options')">
+              <Icon name="lucide:wand-sparkles" /><span class="hidden lg:inline">{{ t('layout.title') }}</span>
               <span v-if="autoLayout" class="size-1.5 rounded-full bg-emerald-500" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="center" class="w-60">
             <DropdownMenuItem @select="runLayout({ fit: true })">
-              <Icon name="lucide:wand-sparkles" /> Arrange now <DropdownMenuShortcut>{{ shortcuts.label('arrange') }}</DropdownMenuShortcut>
+              <Icon name="lucide:wand-sparkles" /> {{ t('layout.arrangeNow') }} <DropdownMenuShortcut>{{ shortcuts.label('arrange') }}</DropdownMenuShortcut>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuLabel class="text-xs text-muted-foreground">Strategy</DropdownMenuLabel>
+            <DropdownMenuLabel class="text-xs text-muted-foreground">{{ t('layout.strategy') }}</DropdownMenuLabel>
             <DropdownMenuRadioGroup :model-value="layoutStrategy" @update:model-value="setLayoutStrategy($event as LayoutStrategy)">
               <DropdownMenuRadioItem v-for="st in LAYOUT_STRATEGIES" :key="st.id" :value="st.id">
-                <span class="flex flex-col"><span>{{ st.label }}</span><span class="text-xs text-muted-foreground">{{ st.hint }}</span></span>
+                <span class="flex flex-col"><span>{{ t(`layout.${st.id}`) }}</span><span class="text-xs text-muted-foreground">{{ t(`layout.${st.id}.hint`) }}</span></span>
               </DropdownMenuRadioItem>
             </DropdownMenuRadioGroup>
             <DropdownMenuSeparator />
             <DropdownMenuCheckboxItem :model-value="autoLayout" @update:model-value="setAutoLayout($event === true)">
-              Auto-arrange <DropdownMenuShortcut>{{ shortcuts.label('toggleAuto') }}</DropdownMenuShortcut>
+              {{ t('layout.auto') }} <DropdownMenuShortcut>{{ shortcuts.label('toggleAuto') }}</DropdownMenuShortcut>
             </DropdownMenuCheckboxItem>
-            <p class="px-2 pb-1.5 text-xs text-muted-foreground">While on, nodes can't be dragged.</p>
+            <p class="px-2 pb-1.5 text-xs text-muted-foreground">{{ t('layout.autoNote') }}</p>
           </DropdownMenuContent>
         </DropdownMenu>
         <Separator orientation="vertical" class="mx-0.5 h-5" />
-        <Tip text="Undo" shortcut="undo"><Button variant="ghost" size="icon" :disabled="!canUndo" @click="undo"><Icon name="lucide:undo-2" /></Button></Tip>
-        <Tip text="Redo" shortcut="redo"><Button variant="ghost" size="icon" :disabled="!canRedo" @click="redo"><Icon name="lucide:redo-2" /></Button></Tip>
+        <Tip :text="t('tip.undo')" shortcut="undo"><Button variant="ghost" size="icon" :disabled="!canUndo" @click="undo"><Icon name="lucide:undo-2" /></Button></Tip>
+        <Tip :text="t('tip.redo')" shortcut="redo"><Button variant="ghost" size="icon" :disabled="!canRedo" @click="redo"><Icon name="lucide:redo-2" /></Button></Tip>
       </div>
 
       <!-- top right -->
       <div :class="[panel, 'absolute top-4 right-4']">
+        <DropdownMenu>
+          <DropdownMenuTrigger as-child>
+            <Button variant="ghost" class="gap-1.5 px-2 uppercase" :title="t('tip.language')">
+              <Icon name="lucide:languages" /> {{ locale }}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuRadioGroup :model-value="locale" @update:model-value="locale = $event as Locale">
+              <DropdownMenuRadioItem v-for="l in LOCALES" :key="l.code" :value="l.code">{{ l.label }}</DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <WarningsPanel @focus="focusFromWarning" />
-        <Tip text="Keyboard shortcuts"><Button variant="ghost" size="icon" @click="shortcutsOpen = true"><Icon name="lucide:keyboard" /></Button></Tip>
-        <Tip text="Toggle theme">
+        <Tip :text="t('tip.shortcuts')"><Button variant="ghost" size="icon" @click="shortcutsOpen = true"><Icon name="lucide:keyboard" /></Button></Tip>
+        <Tip :text="t('tip.theme')">
           <Button variant="ghost" size="icon" aria-label="Toggle theme" @click="colorMode.preference = colorMode.value === 'dark' ? 'light' : 'dark'">
             <ClientOnly><Icon :name="colorMode.value === 'dark' ? 'lucide:sun' : 'lucide:moon'" /></ClientOnly>
           </Button>
@@ -244,14 +290,14 @@ const hint = computed(() => {
 
       <!-- bottom left: zoom -->
       <div :class="[panel, 'absolute bottom-4 left-4']">
-        <Tip text="Zoom out (or scroll)" side="top"><Button variant="ghost" size="icon" @click="canvas?.zoom(1 / 1.25)"><Icon name="lucide:zoom-out" /></Button></Tip>
-        <Tip text="Zoom in (or scroll)" side="top"><Button variant="ghost" size="icon" @click="canvas?.zoom(1.25)"><Icon name="lucide:zoom-in" /></Button></Tip>
-        <Tip text="Fit diagram" shortcut="fit" side="top"><Button variant="ghost" size="icon" @click="canvas?.fit()"><Icon name="lucide:maximize" /></Button></Tip>
+        <Tip :text="t('tip.zoomOut')" side="top"><Button variant="ghost" size="icon" @click="canvas?.zoom(1 / 1.25)"><Icon name="lucide:zoom-out" /></Button></Tip>
+        <Tip :text="t('tip.zoomIn')" side="top"><Button variant="ghost" size="icon" @click="canvas?.zoom(1.25)"><Icon name="lucide:zoom-in" /></Button></Tip>
+        <Tip :text="t('tip.fit')" shortcut="fit" side="top"><Button variant="ghost" size="icon" @click="canvas?.fit()"><Icon name="lucide:maximize" /></Button></Tip>
       </div>
 
       <!-- bottom center: contextual shortcut tips -->
       <div v-if="keyTips.length" :class="[panel, 'pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 gap-x-3 px-3 text-xs text-muted-foreground']">
-        <span v-if="selectedId" class="flex items-center gap-1"><span class="inline-flex size-4 items-center justify-center rounded-full bg-blue-500 text-[10px] leading-none text-white">+</span> Drag to connect</span>
+        <span v-if="selectedId" class="flex items-center gap-1"><span class="inline-flex size-4 items-center justify-center rounded-full bg-blue-500 text-[10px] leading-none text-white">+</span> {{ t('tips.dragConnect') }}</span>
         <span v-for="t in keyTips" :key="t.id" class="flex items-center gap-1">
           <kbd class="rounded border bg-muted px-1 py-0.5 font-mono text-[10px] text-foreground">{{ t.key }}</kbd> {{ t.name }}
         </span>

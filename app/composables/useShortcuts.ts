@@ -1,25 +1,24 @@
 export interface ShortcutDef {
   id: string
-  label: string
-  group: 'Selected element' | 'Diagram'
+  group: 'node' | 'diagram'
   default: string
 }
 
 export const SHORTCUTS: ShortcutDef[] = [
-  { id: 'rename', label: 'Rename', group: 'Selected element', default: 'r' },
-  { id: 'addAttribute', label: 'Add attribute', group: 'Selected element', default: 'a' },
-  { id: 'connect', label: 'Connect to…', group: 'Selected element', default: 'c' },
-  { id: 'addGeneralization', label: 'Add generalization (entity)', group: 'Selected element', default: 'g' },
-  { id: 'duplicate', label: 'Duplicate', group: 'Selected element', default: 'ctrl+d' },
-  { id: 'delete', label: 'Delete', group: 'Selected element', default: 'delete' },
-  { id: 'newEntity', label: 'New entity', group: 'Diagram', default: 'e' },
-  { id: 'newRelationship', label: 'New relationship', group: 'Diagram', default: 'l' },
-  { id: 'newGeneralization', label: 'New generalization', group: 'Diagram', default: 'shift+g' },
-  { id: 'arrange', label: 'Arrange once', group: 'Diagram', default: 't' },
-  { id: 'toggleAuto', label: 'Toggle auto layout', group: 'Diagram', default: 'shift+t' },
-  { id: 'fit', label: 'Fit diagram', group: 'Diagram', default: 'f' },
-  { id: 'undo', label: 'Undo', group: 'Diagram', default: 'ctrl+z' },
-  { id: 'redo', label: 'Redo', group: 'Diagram', default: 'ctrl+shift+z' },
+  { id: 'rename', group: 'node', default: 'r' },
+  { id: 'addAttribute', group: 'node', default: 'a' },
+  { id: 'connect', group: 'node', default: 'c' },
+  { id: 'addGeneralization', group: 'node', default: 'g' },
+  { id: 'duplicate', group: 'node', default: 'ctrl+d' },
+  { id: 'delete', group: 'node', default: 'delete' },
+  { id: 'newEntity', group: 'diagram', default: 'e' },
+  { id: 'newRelationship', group: 'diagram', default: 'l' },
+  { id: 'newGeneralization', group: 'diagram', default: 'shift+g' },
+  { id: 'arrange', group: 'diagram', default: 't' },
+  { id: 'toggleAuto', group: 'diagram', default: 'shift+t' },
+  { id: 'fit', group: 'diagram', default: 'f' },
+  { id: 'undo', group: 'diagram', default: 'ctrl+z' },
+  { id: 'redo', group: 'diagram', default: 'ctrl+shift+z' },
 ]
 
 const STORAGE_KEY = 'er-maker:shortcuts'
