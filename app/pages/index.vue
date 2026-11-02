@@ -25,7 +25,7 @@ useHead({
 
 const colorMode = useColorMode()
 const { diagram, selectedId, mode, pendingId, isEmpty, find, setMode, addEntity, addRelationship, addGeneralization, remove, load, init, undo, redo, canUndo, canRedo, duplicate, selected, addAttribute, addGeneralizationFor, autoLayout, setAutoLayout, layoutStrategy, setLayoutStrategy, runLayout, fitRequest } = useDiagram()
-const canvas = ref<{ focusNode: (id: string) => void, center: () => { x: number, y: number }, fit: () => void, zoom: (f: number) => void, exportSvg: () => { width: number, height: number, markup: string } }>()
+const canvas = ref<{ focusNode: (id: string) => void, center: () => { x: number, y: number }, fit: () => void, zoom: (f: number) => void, exportSvg: (o?: { skipUnconnected?: boolean }) => { width: number, height: number, markup: string } }>()
 const fileInput = ref<HTMLInputElement>()
 
 const { load: loadRules } = useWarnings()
@@ -52,10 +52,16 @@ function download(name: string, blob: Blob) {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000)
 }
 
-const exportJson = () => download('diagram.json', new Blob([JSON.stringify(diagram.value, null, 2)], { type: 'application/json' }))
-const exportSvg = () => download('diagram.svg', new Blob([canvas.value!.exportSvg().markup], { type: 'image/svg+xml' }))
+const skipUnconnected = ref(false)
+onMounted(() => { try { skipUnconnected.value = localStorage.getItem('er-maker:skip-unconnected') === '1' } catch { /* ignore */ } })
+watch(skipUnconnected, (v) => { try { localStorage.setItem('er-maker:skip-unconnected', v ? '1' : '0') } catch { /* ignore */ } })
+const exported = () => (skipUnconnected.value ? withoutUnconnected(diagram.value) : diagram.value)
+const svgOpts = () => ({ skipUnconnected: skipUnconnected.value })
+
+const exportJson = () => download('diagram.json', new Blob([JSON.stringify(exported(), null, 2)], { type: 'application/json' }))
+const exportSvg = () => download('diagram.svg', new Blob([canvas.value!.exportSvg(svgOpts()).markup], { type: 'image/svg+xml' }))
 function exportPng() {
-  const { width, height, markup } = canvas.value!.exportSvg()
+  const { width, height, markup } = canvas.value!.exportSvg(svgOpts())
   const img = new Image()
   img.onload = () => {
     const c = document.createElement('canvas')
@@ -89,9 +95,9 @@ function flash(msg: string) {
   clearTimeout(noticeTimer)
   noticeTimer = setTimeout(() => (notice.value = ''), 2200)
 }
-const exportMermaid = () => download('diagram.mmd', new Blob([toMermaid(diagram.value)], { type: 'text/plain' }))
+const exportMermaid = () => download('diagram.mmd', new Blob([toMermaid(exported())], { type: 'text/plain' }))
 async function copyMermaid() {
-  try { await navigator.clipboard.writeText(toMermaid(diagram.value)); flash(t('notice.copied')) }
+  try { await navigator.clipboard.writeText(toMermaid(exported())); flash(t('notice.copied')) }
   catch { flash(t('notice.clipboardFail')) }
 }
 
@@ -203,6 +209,10 @@ const hint = computed(() => {
             <DropdownMenuSub>
               <DropdownMenuSubTrigger><Icon name="lucide:download" /> {{ t('menu.export') }}</DropdownMenuSubTrigger>
               <DropdownMenuSubContent>
+                <DropdownMenuLabel class="text-xs text-muted-foreground">{{ t('menu.exportOptions') }}</DropdownMenuLabel>
+                <DropdownMenuCheckboxItem :model-value="skipUnconnected" @select.prevent @update:model-value="skipUnconnected = $event === true">{{ t('menu.skipUnconnected') }}</DropdownMenuCheckboxItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel class="text-xs text-muted-foreground">{{ t('menu.exportAs') }}</DropdownMenuLabel>
                 <DropdownMenuItem @select="exportPng"><Icon name="lucide:image" /> {{ t('menu.png') }}</DropdownMenuItem>
                 <DropdownMenuItem @select="exportSvg"><Icon name="lucide:file-code" /> {{ t('menu.svg') }}</DropdownMenuItem>
                 <DropdownMenuItem @select="exportJson"><Icon name="lucide:braces" /> {{ t('menu.json') }}</DropdownMenuItem>

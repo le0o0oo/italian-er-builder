@@ -376,10 +376,17 @@ function zoom(f: number) {
 }
 
 /** Standalone SVG markup of the diagram, on a white background. */
-function exportSvg() {
+function exportSvg(opts: { skipUnconnected?: boolean } = {}) {
   const g = content.value!
+  const skip = opts.skipUnconnected ? [...isolatedEntityIds(diagram.value)] : []
+  const hidden = skip.flatMap(id => [...g.querySelectorAll<SVGElement>(`[data-id="${id}"]`)])
+  hidden.forEach(n => (n.style.display = 'none')) // getBBox ignores hidden nodes
   const bb = g.getBBox()
   const clone = g.cloneNode(true) as SVGGElement
+  hidden.forEach(n => (n.style.display = ''))
+  clone.querySelectorAll('[data-id]').forEach((n) => {
+    if (skip.includes(n.getAttribute('data-id')!)) n.remove()
+  })
   clone.removeAttribute('transform')
   clone.querySelectorAll('[data-ui]').forEach(n => n.remove())
   const pad = 32
@@ -467,7 +474,7 @@ onMounted(() => {
       </g>
 
       <!-- entities -->
-      <g v-for="e in diagram.entities" :key="e.id" :transform="`translate(${e.x} ${e.y})`" :class="autoLayout ? 'cursor-pointer' : 'cursor-move'" @pointerdown.stop="onNodeDown($event, e)" @contextmenu="onContext($event, e)">
+      <g v-for="e in diagram.entities" :key="e.id" :data-id="e.id" :transform="`translate(${e.x} ${e.y})`" :class="autoLayout ? 'cursor-pointer' : 'cursor-move'" @pointerdown.stop="onNodeDown($event, e)" @contextmenu="onContext($event, e)">
         <ErAttributes :attributes="e.attributes" :spine-x="-nodeSize(e).w / 2 + 18" :start-y="combDir(e.id) * nodeSize(e).h / 2" :dir="combDir(e.id)" />
         <rect v-if="isSel(e) || isPending(e) || rubber?.target === e.id" data-ui :x="outline(e).x" :y="outline(e).y" :width="outline(e).w" :height="outline(e).h" rx="3" fill="none" :stroke="isPending(e) || rubber?.target === e.id ? c.warn : c.sel" stroke-width="2" stroke-dasharray="5 3" />
         <rect :x="-nodeSize(e).w / 2" :y="-nodeSize(e).h / 2" :width="nodeSize(e).w" :height="nodeSize(e).h" :fill="c.paper" :stroke="c.ink" stroke-width="2" />
