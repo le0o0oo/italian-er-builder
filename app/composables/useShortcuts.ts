@@ -11,6 +11,7 @@ export const SHORTCUTS: ShortcutDef[] = [
   { id: 'addGeneralization', group: 'node', default: 'g' },
   { id: 'duplicate', group: 'node', default: 'ctrl+d' },
   { id: 'delete', group: 'node', default: 'delete' },
+  { id: 'search', group: 'diagram', default: 'ctrl+f' },
   { id: 'newEntity', group: 'diagram', default: 'e' },
   { id: 'newRelationship', group: 'diagram', default: 'l' },
   { id: 'newGeneralization', group: 'diagram', default: 'shift+g' },

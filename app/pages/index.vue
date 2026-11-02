@@ -116,6 +116,10 @@ function clearAll() {
 
 const shortcuts = useShortcuts()
 const shortcutsOpen = ref(false)
+const searchOpen = ref(false)
+function pickSearch(id: string) {
+  focusFromWarning(id)
+}
 
 function onKey(ev: KeyboardEvent) {
   const t = ev.target as HTMLElement
@@ -140,6 +144,7 @@ function onKey(ev: KeyboardEvent) {
     case 'addGeneralization': addGeneralizationFor(sel!.id); break
     case 'duplicate': duplicate(sel!.id); break
     case 'delete': remove(sel!.id); break
+    case 'search': searchOpen.value = true; break
     case 'newEntity': addAt(addEntity); break
     case 'newRelationship': addAt(addRelationship); break
     case 'newGeneralization': addAt(addGeneralization); break
@@ -272,6 +277,7 @@ const hint = computed(() => {
 
       <!-- top right -->
       <div :class="[panel, 'absolute top-4 right-4']">
+        <Tip :text="t('tip.search')" shortcut="search"><Button variant="ghost" size="icon" @click="searchOpen = true"><Icon name="lucide:search" /></Button></Tip>
         <DropdownMenu>
           <DropdownMenuTrigger as-child>
             <Button variant="ghost" class="gap-1.5 px-2 uppercase" :title="t('tip.language')">
@@ -317,6 +323,7 @@ const hint = computed(() => {
       <div v-if="hint || notice" :class="[panel, 'pointer-events-none absolute top-[4.75rem] left-1/2 -translate-x-1/2 bg-neutral-900/90 px-4 text-sm text-white']">{{ hint || notice }}</div>
 
       <ShortcutsDialog v-model:open="shortcutsOpen" />
+      <SearchDialog v-model:open="searchOpen" @pick="pickSearch" />
     </div>
   </TooltipProvider>
 </template>
