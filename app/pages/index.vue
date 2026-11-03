@@ -221,6 +221,7 @@ const hint = computed(() => {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" class="w-52">
             <DropdownMenuItem as-child><NuxtLink to="/guide"><Icon name="lucide:book-open" /> {{ t('menu.guide') }}</NuxtLink></DropdownMenuItem>
+            <DropdownMenuItem as-child><a href="https://github.com/le0o0oo/italian-er-builder" target="_blank" rel="noopener noreferrer"><Icon name="lucide:github" /> GitHub</a></DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem @select="loadSample"><Icon name="lucide:sparkles" /> {{ t('menu.example') }}</DropdownMenuItem>
             <DropdownMenuItem @select="fileInput?.click()"><Icon name="lucide:upload" /> {{ t('menu.import') }}</DropdownMenuItem>
@@ -240,7 +241,6 @@ const hint = computed(() => {
               </DropdownMenuSubContent>
             </DropdownMenuSub>
             <DropdownMenuSeparator />
-            <DropdownMenuItem as-child><a href="https://github.com/le0o0oo/italian-er-builder" target="_blank" rel="noopener noreferrer"><Icon name="lucide:github" /> GitHub</a></DropdownMenuItem>
             <DropdownMenuItem variant="destructive" @select="clearAll"><Icon name="lucide:eraser" /> {{ t('menu.clear') }}</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
