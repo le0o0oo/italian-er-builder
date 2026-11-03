@@ -190,11 +190,29 @@ function onUp(ev?: PointerEvent) {
   drag = null
 }
 
+// Trackpads send many small, often fractional deltas (and deltaX); mouse wheels send big steps on Y only.
+let lastWheel = 0
+let trackpad = false
+function looksLikeTrackpad(ev: WheelEvent) {
+  if (ev.deltaMode !== 0) return false
+  const now = ev.timeStamp
+  if (ev.deltaX !== 0 || !Number.isInteger(ev.deltaY) || Math.abs(ev.deltaY) < 50) trackpad = true
+  else if (now - lastWheel > 300) trackpad = false // isolated big integer step: a wheel notch
+  lastWheel = now
+  return trackpad
+}
+
 function onWheel(ev: WheelEvent) {
+  // two-finger scroll pans; pinch (reported as ctrl+wheel) and mouse wheel zoom
+  if (!ev.ctrlKey && looksLikeTrackpad(ev)) {
+    view.x -= ev.deltaX
+    view.y -= ev.deltaY
+    return
+  }
   const r = svg.value!.getBoundingClientRect()
   const mx = ev.clientX - r.left
   const my = ev.clientY - r.top
-  const k = Math.min(3, Math.max(0.2, view.k * Math.exp(-ev.deltaY * 0.0015)))
+  const k = Math.min(3, Math.max(0.2, view.k * Math.exp(-ev.deltaY * (ev.ctrlKey ? 0.01 : 0.0015))))
   view.x = mx - (mx - view.x) * (k / view.k)
   view.y = my - (my - view.y) * (k / view.k)
   view.k = k
