@@ -56,13 +56,3 @@ app/
   utils/        layout algorithms, geometry, rules, Mermaid export
 server/routes/  robots.txt and sitemap.xml
 ```
-
-## Contributing
-
-UI components that exist in shadcn-vue should be added with the CLI rather than hand-written:
-
-```bash
-pnpm dlx shadcn-vue@latest add <component>
-```
-
-Use `<Icon name="lucide:..." />` for icons.
