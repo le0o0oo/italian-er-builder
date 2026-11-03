@@ -15,6 +15,7 @@ export const RULES: Rule[] = [
   { id: 'attr-duplicates', default: true },
   { id: 'entity-attributes', default: false },
   { id: 'gen-min-children', default: false },
+  { id: 'derived-key', default: true },
   { id: 'child-own-key', default: false },
   { id: 'default-names', default: false },
 ]
@@ -38,6 +39,9 @@ export function checkDiagram(d: Diagram, on: Record<string, boolean>, t: Transla
     }
     if (on['entity-isolated'] && !linkedEntities.has(e.id) && !inGeneralization.has(e.id)) warn('entity-isolated', e.id, t('msg.entity-isolated', { name: q(e.name) }))
     if (on['entity-attributes'] && !e.attributes.length && !childIds.has(e.id)) warn('entity-attributes', e.id, t('msg.entity-attributes', { name: q(e.name) }))
+    if (on['derived-key']) {
+      for (const a of e.attributes) if (a.identifier && a.derived) warn('derived-key', e.id, t('msg.derived-key', { name: q(e.name), attr: q(a.name) }))
+    }
     if (on['child-own-key'] && childIds.has(e.id) && e.attributes.some(a => a.identifier)) warn('child-own-key', e.id, t('msg.child-own-key', { name: q(e.name) }))
   }
 
