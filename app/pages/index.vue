@@ -25,7 +25,20 @@ useHead({
 
 const colorMode = useColorMode()
 const { diagram, selectedId, mode, pendingId, isEmpty, find, setMode, addEntity, addRelationship, addGeneralization, remove, load, init, undo, redo, canUndo, canRedo, duplicate, selected, addAttribute, addGeneralizationFor, autoLayout, setAutoLayout, layoutStrategy, setLayoutStrategy, runLayout, fitRequest } = useDiagram()
-const canvas = ref<{ focusNode: (id: string) => void, center: () => { x: number, y: number }, fit: () => void, zoom: (f: number) => void, exportSvg: (o?: { skipUnconnected?: boolean }) => { width: number, height: number, markup: string } }>()
+const SNAP_HALF = 0.3
+const snap = ref<number | string | null>(SNAP_HALF)
+function onSnap(v: number | string | null) {
+  snap.value = v ?? SNAP_HALF
+  setTimeout(() => canvas.value?.revealSelected(), 50)
+}
+watch(selectedId, () => { snap.value = SNAP_HALF }) // each new selection opens half-way
+const isMobile = ref(false)
+onMounted(() => {
+  const mq = window.matchMedia('(max-width: 767px)')
+  isMobile.value = mq.matches
+  mq.addEventListener('change', e => (isMobile.value = e.matches))
+})
+const canvas = ref<{ revealSelected: () => void, focusNode: (id: string) => void, center: () => { x: number, y: number }, fit: () => void, zoom: (f: number) => void, exportSvg: (o?: { skipUnconnected?: boolean }) => { width: number, height: number, markup: string } }>()
 const fileInput = ref<HTMLInputElement>()
 
 const { load: loadRules } = useWarnings()
@@ -300,9 +313,16 @@ const hint = computed(() => {
       </div>
 
       <!-- inspector: only while something is selected -->
-      <aside v-if="selected" class="absolute inset-x-3 bottom-3 z-10 max-h-[55dvh] overflow-y-auto rounded-xl border bg-background/90 shadow-lg backdrop-blur-md md:inset-x-auto md:top-[4.75rem] md:right-4 md:bottom-auto md:max-h-[calc(100%-6.5rem)] md:w-80 md:bg-background/85">
+      <aside v-if="selected && !isMobile" data-inspector class="absolute top-[4.75rem] right-4 z-10 max-h-[calc(100%-6.5rem)] w-80 overflow-y-auto rounded-xl border bg-background/85 shadow-lg backdrop-blur-md">
         <Inspector />
       </aside>
+      <Drawer :open="!!selected && isMobile" :modal="false" :snap-points="[SNAP_HALF, 1]" :snap-point="snap" @update:snap-point="onSnap" @update:open="(o: boolean) => { if (!o) selectedId = null }">
+        <DrawerContent hide-overlay data-inspector :data-snap="snap" class="h-[60dvh]">
+          <DrawerTitle class="sr-only">{{ selected ? t(`insp.${selected.kind}`) : '' }}</DrawerTitle>
+          <DrawerDescription class="sr-only">{{ selected?.name }}</DrawerDescription>
+          <div class="min-h-0 flex-1 overflow-y-auto"><Inspector /></div>
+        </DrawerContent>
+      </Drawer>
 
       <!-- bottom left: zoom -->
       <div :class="[panel, 'absolute bottom-20 left-4 md:bottom-4', selected && 'max-md:hidden']">

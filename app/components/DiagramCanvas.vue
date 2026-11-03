@@ -411,7 +411,42 @@ function focusNode(id: string) {
   view.y = r.height / 2 - n.y * view.k
 }
 
-defineExpose({ center, fit, zoom, exportSvg, focusNode })
+/** Pan so the selected node isn't hidden behind the inspector card. */
+function revealSelected() {
+  const id = selectedId.value
+  const s = svg.value
+  const card = document.querySelector<HTMLElement>('[data-inspector]')
+  if (!id || !s || !card) return
+  const node = s.querySelector<SVGGraphicsElement>(`[data-id="${CSS.escape(id)}"]`)
+  if (!node) return
+  const n = node.getBoundingClientRect()
+  const v = s.getBoundingClientRect()
+  let c = card.getBoundingClientRect()
+  if (c.width > v.width * 0.6) { // bottom drawer: use its final resting position, not the mid-slide one
+    const frac = Number(card.dataset.snap)
+    const h = Math.min(card.offsetHeight, frac > 0 && frac <= 1 ? frac * window.innerHeight : card.offsetHeight)
+    c = new DOMRect(c.left, window.innerHeight - h, c.width, h)
+  }
+  const m = 24
+  if (n.right < c.left || n.left > c.right || n.bottom < c.top || n.top > c.bottom) return // not covered
+  if (c.width > v.width * 0.6) { // bottom sheet (mobile): free area is above it
+    const free = c.top - v.top - m
+    view.y -= Math.max(0, n.bottom - (v.top + free)) + (n.top < v.top + m ? v.top + m - n.top : 0)
+  } else { // side card: free area is to its left
+    const dx = n.right - (c.left - m)
+    const room = c.left - m - v.left
+    view.x -= n.width > room ? n.left - (v.left + m) : dx
+  }
+}
+
+watch(selectedId, async (id) => {
+  if (!id) return
+  await nextTick()
+  requestAnimationFrame(revealSelected)
+  setTimeout(revealSelected, 150) // the mobile drawer mounts/measures a bit later
+})
+
+defineExpose({ revealSelected, center, fit, zoom, exportSvg, focusNode })
 onMounted(() => {
   isCoarse.value = window.matchMedia('(pointer: coarse)').matches
   nextTick(fit)
@@ -453,7 +488,7 @@ onMounted(() => {
       </g>
 
       <!-- generalizations -->
-      <g v-for="d in gens" :key="d.g.id" :class="autoLayout ? 'cursor-pointer' : 'cursor-move'" @pointerdown.stop="onNodeDown($event, d.g)" @contextmenu="onContext($event, d.g)">
+      <g v-for="d in gens" :key="d.g.id" :data-id="d.g.id" :class="autoLayout ? 'cursor-pointer' : 'cursor-move'" @pointerdown.stop="onNodeDown($event, d.g)" @contextmenu="onContext($event, d.g)">
         <line v-for="cl in d.childLines" :key="cl.id" :x1="cl.from.x" :y1="cl.from.y" :x2="cl.to.x" :y2="cl.to.y" :stroke="c.ink" stroke-width="1.5" />
         <line v-if="d.parentLine" :x1="d.parentLine.from.x" :y1="d.parentLine.from.y" :x2="d.parentLine.to.x" :y2="d.parentLine.to.y" :stroke="c.ink" stroke-width="3.5" />
         <text :x="d.lx" :y="d.ly" text-anchor="middle" dominant-baseline="central" font-size="12.5" font-weight="600" :fill="c.ink" :stroke="c.paper" stroke-width="4" paint-order="stroke">{{ d.notation }}</text>
@@ -487,7 +522,7 @@ onMounted(() => {
       </g>
 
       <!-- relationships -->
-      <g v-for="r in diagram.relationships" :key="r.id" :transform="`translate(${r.x} ${r.y})`" :class="autoLayout ? 'cursor-pointer' : 'cursor-move'" @pointerdown.stop="onNodeDown($event, r)" @contextmenu="onContext($event, r)">
+      <g v-for="r in diagram.relationships" :key="r.id" :data-id="r.id" :transform="`translate(${r.x} ${r.y})`" :class="autoLayout ? 'cursor-pointer' : 'cursor-move'" @pointerdown.stop="onNodeDown($event, r)" @contextmenu="onContext($event, r)">
         <ErAttributes :attributes="r.attributes" :spine-x="0" :start-y="combDir(r.id) * nodeSize(r).h / 2" :dir="combDir(r.id)" />
         <polygon v-if="isSel(r) || isPending(r) || rubber?.target === r.id" data-ui :points="outline(r).points" fill="none" :stroke="isPending(r) || rubber?.target === r.id ? c.warn : c.sel" stroke-width="2" stroke-dasharray="5 3" />
         <polygon :points="diamond(r)" :fill="c.paper" :stroke="c.ink" stroke-width="2" stroke-linejoin="round" />
