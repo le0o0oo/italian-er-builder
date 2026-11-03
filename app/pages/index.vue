@@ -240,6 +240,7 @@ const hint = computed(() => {
               </DropdownMenuSubContent>
             </DropdownMenuSub>
             <DropdownMenuSeparator />
+            <DropdownMenuItem as-child><a href="https://github.com/le0o0oo/italian-er-builder" target="_blank" rel="noopener noreferrer"><Icon name="lucide:github" /> GitHub</a></DropdownMenuItem>
             <DropdownMenuItem variant="destructive" @select="clearAll"><Icon name="lucide:eraser" /> {{ t('menu.clear') }}</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -305,11 +306,6 @@ const hint = computed(() => {
         </DropdownMenu>
         <WarningsPanel @focus="focusFromWarning" />
         <Tip :text="t('tip.shortcuts')"><Button class="max-md:hidden" variant="ghost" size="icon" @click="shortcutsOpen = true"><Icon name="lucide:keyboard" /></Button></Tip>
-        <Tip :text="t('tip.github')">
-          <Button variant="ghost" size="icon" as-child>
-            <a href="https://github.com/le0o0oo/italian-er-builder" target="_blank" rel="noopener noreferrer" aria-label="GitHub"><Icon name="lucide:github" /></a>
-          </Button>
-        </Tip>
         <Tip :text="t('tip.theme')">
           <Button variant="ghost" size="icon" aria-label="Toggle theme" @click="colorMode.preference = colorMode.value === 'dark' ? 'light' : 'dark'">
             <ClientOnly><Icon :name="colorMode.value === 'dark' ? 'lucide:sun' : 'lucide:moon'" /></ClientOnly>
