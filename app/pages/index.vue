@@ -129,6 +129,11 @@ function clearAll() {
 
 const shortcuts = useShortcuts()
 const shortcutsOpen = ref(false)
+const llmOpen = ref(false)
+function importFromLlm(d: Diagram) {
+  load(d)
+  nextTick(() => runLayout({ fit: true, animate: false }))
+}
 const searchOpen = ref(false)
 function pickSearch(id: string) {
   focusFromWarning(id)
@@ -224,6 +229,7 @@ const hint = computed(() => {
             <DropdownMenuItem as-child><a href="https://github.com/le0o0oo/italian-er-builder" target="_blank" rel="noopener noreferrer"><Icon name="lucide:github" /> GitHub</a></DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem @select="loadSample"><Icon name="lucide:sparkles" /> {{ t('menu.example') }}</DropdownMenuItem>
+            <DropdownMenuItem @select="llmOpen = true"><Icon name="lucide:bot" /> {{ t('menu.llm') }}</DropdownMenuItem>
             <DropdownMenuItem @select="fileInput?.click()"><Icon name="lucide:upload" /> {{ t('menu.import') }}</DropdownMenuItem>
             <DropdownMenuSub>
               <DropdownMenuSubTrigger><Icon name="lucide:download" /> {{ t('menu.export') }}</DropdownMenuSubTrigger>
@@ -344,6 +350,7 @@ const hint = computed(() => {
       <div v-if="hint || notice" :class="[panel, 'pointer-events-none absolute top-[4.75rem] left-1/2 -translate-x-1/2 bg-neutral-900/90 px-4 text-sm text-white']">{{ hint || notice }}</div>
 
       <ShortcutsDialog v-model:open="shortcutsOpen" />
+      <LlmDialog v-model:open="llmOpen" @import="importFromLlm" />
       <SearchDialog v-model:open="searchOpen" @pick="pickSearch" />
     </div>
   </TooltipProvider>
