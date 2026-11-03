@@ -126,7 +126,6 @@ export default {
   'insp.name': 'Nome',
   'insp.pk': 'Identificatore:',
   'insp.pkNone': ' nessuno — marca gli attributi con il pulsante chiave',
-  'insp.pkComposite': 'Composto: gli elementi marcati insieme identificano l\'entità (uniti da una curva).',
   'insp.identifiedBy': 'Identificata da associazioni',
   'insp.identifiedByEmpty': 'Collega questa entità a un\'associazione per usarla come (parte dell\')identificatore.',
   'insp.identifiedByHelp': 'Spunta più associazioni per far sì che insieme (eventualmente con attributi identificatori) formino l\'identificatore — sono unite da una curva.',

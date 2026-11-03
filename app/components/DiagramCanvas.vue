@@ -295,32 +295,170 @@ const lines = computed(() => {
   return out
 })
 
-/** Composite identifiers: curves joining the dots of an entity's identifying relationships (and identifier attributes). */
-const idCurves = computed(() => {
-  const out: { id: string, d: string }[] = []
+type P = { x: number, y: number }
+const keyIndexes = (ent: Entity) => ent.attributes.flatMap((a, i) => (a.identifier ? [i] : []))
+const identifyingLines = (ent: Entity) => lines.value.filter(l => l.entityId === ent.id && l.identifying)
+/** Key attribute(s) that are part of a composite identifier: their circles stay empty and a line crosses them. */
+const attrKeyIsComposite = (ent: Entity) => keyIndexes(ent).length > 0 && keyIndexes(ent).length + identifyingLines(ent).length >= 2
+
+/**
+ * Composite identifiers (several key attributes and/or identifying relationships) are drawn as one rectilinear line
+ * that crosses every member and ends in a filled dot. A single key attribute is just a filled circle.
+ * Around the box the line either goes the long way round (away from the attribute list) or hugs the list side;
+ * whichever crosses fewer unrelated connectors wins, then fewer branches, then the shortest line.
+ */
+const keyCrosses = computed(() => {
+  const M = 14
+  const out: { id: string, d: string, dot: P }[] = []
+  const path = (pts: P[]) => pts.map((q, k) => `${k ? 'L' : 'M'}${q.x} ${q.y}`).join(' ')
   for (const ent of diagram.value.entities) {
+    const keyIdx = keyIndexes(ent)
+    const ids = identifyingLines(ent)
+    if (keyIdx.length + ids.length < 2) continue
     const { w, h } = nodeSize(ent)
-    const links = lines.value.filter(l => l.entityId === ent.id && l.identifying).map(l => ({ x: l.x2, y: l.y2, attr: false }))
-    links.sort((a, b) => Math.atan2(a.y - ent.y, a.x - ent.x) - Math.atan2(b.y - ent.y, b.x - ent.x))
-    const attrs = ent.attributes.flatMap((a, i) => a.identifier
-      ? [{ x: ent.x - w / 2 + 18 + 27, y: ent.y + combDir(ent.id) * (h / 2 + 12 + i * 24), attr: true }]
-      : [])
-    const pts = [...links, ...attrs]
-    for (let i = 0; i < pts.length - 1; i++) {
-      const a = pts[i]!
-      const b = pts[i + 1]!
-      const mx = (a.x + b.x) / 2
-      const my = (a.y + b.y) / 2
-      let cx: number
-      let cy: number
-      if (a.attr && b.attr) { cx = mx - 30; cy = my } // bracket to the left of stacked attribute dots
-      else {
-        const len = Math.hypot(mx - ent.x, my - ent.y) || 1
-        cx = mx + (mx - ent.x) / len * 40
-        cy = my + (my - ent.y) / len * 40
-      }
-      out.push({ id: `${ent.id}-${i}`, d: `M${a.x} ${a.y} Q${cx} ${cy} ${b.x} ${b.y}` })
+    const dir = combDir(ent.id)
+    const yAt = (i: number) => ent.y + dir * (h / 2 + 12 + i * 24)
+    const kx = ent.x - w / 2 + 18 + 11
+    const first = keyIdx[0]
+    const last = keyIdx[keyIdx.length - 1]
+
+    // only key attributes: a line down through their stems
+    if (!ids.length) {
+      const dot = { x: kx, y: yAt(first!) - dir * 8 }
+      out.push({ id: ent.id, dot, d: path([dot, { x: kx, y: yAt(last!) + dir * 8 }]) })
+      continue
     }
+
+    const mine = lines.value.filter(l => l.entityId === ent.id)
+    const others = mine.filter(o => !o.identifying)
+    const R = { l: ent.x - w / 2 - M, r: ent.x + w / 2 + M, t: ent.y - h / 2 - M, b: ent.y + h / 2 + M }
+    // hugging track: just under the attribute list side of the box (a normal margin when there is no list)
+    const tight = ent.attributes.length > 0
+    const Rh = { ...R, b: dir === 1 && tight ? ent.y + h / 2 + 4 : R.b, t: dir === -1 && tight ? ent.y - h / 2 - 4 : R.t }
+
+    // a walk around a rectangle, starting from its comb-side left corner
+    const makeWalk = (r: typeof R, step: number) => {
+      const corners: P[] = [{ x: r.l, y: r.b }, { x: r.l, y: r.t }, { x: r.r, y: r.t }, { x: r.r, y: r.b }] // BL TL TR BR
+      const s0 = dir === 1 ? 0 : 1
+      const poly = [0, 1, 2, 3, 4].map(k => corners[(s0 + k * step) % 4]!)
+      const segs = poly.slice(0, 4).map((p, k) => ({ p, q: poly[k + 1]!, len: Math.hypot(poly[k + 1]!.x - p.x, poly[k + 1]!.y - p.y) }))
+      const total = segs.reduce((n, sg) => n + sg.len, 0)
+      // distance along the walk at which a connector leaves the rectangle
+      const hit = (l: { x1: number, y1: number, x2: number, y2: number }) => {
+        const len = Math.hypot(l.x1 - l.x2, l.y1 - l.y2) || 1
+        const ux = (l.x1 - l.x2) / len
+        const uy = (l.y1 - l.y2) / len
+        const sx = ux > 0 ? (r.r - l.x2) / ux : ux < 0 ? (r.l - l.x2) / ux : Infinity
+        const sy = uy > 0 ? (r.b - l.y2) / uy : uy < 0 ? (r.t - l.y2) / uy : Infinity
+        const e = Math.min(sx, sy)
+        const X = { x: l.x2 + ux * e, y: l.y2 + uy * e }
+        let acc = 0
+        for (const sg of segs) {
+          const near = Math.abs((X.x - sg.p.x) * (sg.q.y - sg.p.y) - (X.y - sg.p.y) * (sg.q.x - sg.p.x)) < 0.5 * sg.len
+            && X.x >= Math.min(sg.p.x, sg.q.x) - 0.5 && X.x <= Math.max(sg.p.x, sg.q.x) + 0.5
+            && X.y >= Math.min(sg.p.y, sg.q.y) - 0.5 && X.y <= Math.max(sg.p.y, sg.q.y) + 0.5
+          if (near) return acc + Math.hypot(X.x - sg.p.x, X.y - sg.p.y)
+          acc += sg.len
+        }
+        return Infinity
+      }
+      const pointAt = (dist: number): P => {
+        let acc = 0
+        for (const sg of segs) {
+          if (dist <= acc + sg.len) {
+            const f = (dist - acc) / sg.len
+            return { x: sg.p.x + (sg.q.x - sg.p.x) * f, y: sg.p.y + (sg.q.y - sg.p.y) * f }
+          }
+          acc += sg.len
+        }
+        return poly[4]!
+      }
+      /** the stretch of the walk between two distances, corners included */
+      const between = (d0: number, d1: number) => {
+        const pts: P[] = [pointAt(Math.max(0, d0))]
+        let acc = 0
+        for (const sg of segs) {
+          acc += sg.len
+          if (acc > d0 && acc < d1) pts.push(sg.q)
+        }
+        pts.push(pointAt(Math.min(total, d1)))
+        return pts
+      }
+      /** a stretch of the closed loop starting at distance `from`, `length` long, wrapping past the start corner if needed */
+      const arc = (from: number, length: number) => {
+        const start = ((from % total) + total) % total
+        const pts: P[] = [pointAt(start)]
+        let acc = 0
+        for (let lap = 0; lap < 2; lap++) {
+          for (const sg of segs) {
+            acc += sg.len
+            if (acc > start && acc < start + length) pts.push(sg.q)
+          }
+        }
+        pts.push(pointAt((start + length) % total))
+        return pts
+      }
+      return { hit, between, arc, total }
+    }
+    const around = makeWalk(R, dir === 1 ? 1 : 3)
+    const hug = makeWalk(Rh, dir === 1 ? 3 : 1)
+
+    // identifying relationships only: one line crossing them all, dot at its start.
+    // Try every stretch of the closed loop that covers them all and keep the one crossing the fewest other connectors.
+    if (!keyIdx.length) {
+      const loop = makeWalk(Rh, dir === 1 ? 1 : 3)
+      const at = ids.map(l => loop.hit(l)).sort((x, y) => x - y)
+      if (at.some(x => !isFinite(x))) continue
+      const cands = at.map((_, i) => {
+        // leave out the gap that ends at at[i]: the line starts at at[i] and runs forward to the point before it
+        const from = at[i]! - 12
+        const length = (((at[(i + at.length - 1) % at.length]! - at[i]!) % loop.total) + loop.total) % loop.total + 24
+        const len = at.length === 1 ? 24 : length
+        const crossed = others.filter(o => (((loop.hit(o) - from) % loop.total) + loop.total) % loop.total < len).length
+        return { from, len, score: crossed * 100000 + len }
+      }).sort((x, y) => x.score - y.score)
+      const best = cands[0]!
+      const pts = loop.arc(best.from, best.len)
+      out.push({ id: ent.id, dot: pts[0]!, d: path(pts) })
+      continue
+    }
+
+    // key attribute(s) + identifying relationship(s)
+    const dot = { x: kx, y: yAt(first!) - dir * 8 }
+    const exitY = yAt(last!) + dir * 12
+    const stem: P[] = [dot, { x: kx, y: exitY }, { x: R.l, y: exitY }]
+    const ats = ids.map(l => ({ a: around.hit(l), h: hug.hit(l) }))
+    const plan = (pick: (i: number) => 'around' | 'hug' | null) => {
+      const reach = { around: 0, hug: 0 }
+      ids.forEach((_, i) => {
+        const k = pick(i)
+        if (!k) return
+        reach[k] = Math.max(reach[k], k === 'around' ? ats[i]!.a : ats[i]!.h)
+      })
+      if (!isFinite(reach.around + reach.hug) || !(reach.around || reach.hug)) return null
+      const crossed = others.filter(o => (reach.around && around.hit(o) < reach.around + 12) || (reach.hug && hug.hit(o) < reach.hug + 12)).length
+      const branches = (reach.around ? 1 : 0) + (reach.hug ? 1 : 0)
+      return { reach, score: crossed * 100000 + branches * 2000 + reach.around + reach.hug }
+    }
+    const split = plan((i) => {
+      const at = ats[i]!
+      const cross = (walk: typeof around, d: number) => others.filter(o => walk.hit(o) < d + 12).length
+      const ca = cross(around, at.a)
+      const ch = cross(hug, at.h)
+      return ch < ca || (ch === ca && at.h < at.a) ? 'hug' : 'around'
+    })
+    const best = [plan(() => 'around'), plan(() => 'hug'), split].filter(x => x !== null).sort((x, y) => x!.score - y!.score)[0]
+    if (!best) continue
+    const reach = best.reach
+    // Hugging only: the dot goes below the last key stem so the line climbs through it onto the track.
+    const mark = reach.around ? dot : { x: kx, y: yAt(last!) + dir * 9 }
+    const parts: string[] = []
+    if (reach.around) parts.push(path([...stem, ...around.between(0, reach.around + 12)]))
+    if (reach.hug) {
+      const track = dir === 1 ? Rh.b : Rh.t
+      parts.push(path([mark, { x: kx, y: track }, ...hug.between(0, reach.hug + 12).slice(1)]))
+    }
+    if (parts.length) out.push({ id: ent.id, dot: mark, d: parts.join(' ') })
   }
   return out
 })
@@ -500,12 +638,10 @@ onMounted(() => {
     <rect width="100%" height="100%" fill="url(#er-grid)" />
 
     <g ref="content" :transform="`translate(${view.x} ${view.y}) scale(${view.k})`" font-family="Arial, Helvetica, sans-serif">
-      <path v-for="cv in idCurves" :key="cv.id" :d="cv.d" fill="none" :stroke="c.ink" stroke-width="1.5" />
-
       <!-- relationship ↔ entity lines -->
       <g v-for="l in lines" :key="l.id">
         <line :x1="l.x1" :y1="l.y1" :x2="l.x2" :y2="l.y2" :stroke="c.ink" stroke-width="1.5" />
-        <circle v-if="l.identifying" :cx="l.x2" :cy="l.y2" r="5.5" :fill="c.ink" />
+        <circle v-if="l.identifying" :cx="l.x2" :cy="l.y2" r="8" :fill="c.ink" />
         <text :x="l.lx" :y="l.ly" text-anchor="middle" dominant-baseline="central" font-size="12.5" font-weight="600" :fill="c.ink" :stroke="c.paper" stroke-width="4" paint-order="stroke">{{ l.card }}</text>
       </g>
 
@@ -532,7 +668,7 @@ onMounted(() => {
 
       <!-- entities -->
       <g v-for="e in diagram.entities" :key="e.id" :data-id="e.id" :transform="`translate(${e.x} ${e.y})`" :class="autoLayout ? 'cursor-pointer' : 'cursor-move'" @pointerdown.stop="onNodeDown($event, e)" @contextmenu="onContext($event, e)">
-        <ErAttributes :attributes="e.attributes" :spine-x="-nodeSize(e).w / 2 + 18" :start-y="combDir(e.id) * nodeSize(e).h / 2" :dir="combDir(e.id)" />
+        <ErAttributes :attributes="e.attributes" :spine-x="-nodeSize(e).w / 2 + 18" :start-y="combDir(e.id) * nodeSize(e).h / 2" :dir="combDir(e.id)" :key-line="attrKeyIsComposite(e)" />
         <rect v-if="isSel(e) || isPending(e) || rubber?.target === e.id" data-ui :x="outline(e).x" :y="outline(e).y" :width="outline(e).w" :height="outline(e).h" rx="3" fill="none" :stroke="isPending(e) || rubber?.target === e.id ? c.warn : c.sel" stroke-width="2" stroke-dasharray="5 3" />
         <rect :x="-nodeSize(e).w / 2" :y="-nodeSize(e).h / 2" :width="nodeSize(e).w" :height="nodeSize(e).h" :fill="c.paper" :stroke="c.ink" stroke-width="2" />
         <text text-anchor="middle" dominant-baseline="central" font-size="15" font-weight="700" :fill="c.ink">{{ e.name }}</text>
@@ -554,6 +690,14 @@ onMounted(() => {
           <text text-anchor="middle" dominant-baseline="central" font-size="12" font-weight="800" fill="#fff">!</text>
           <title>{{ warned[r.id]!.map(w => w.message).join('\n') }}</title>
         </g>
+      </g>
+
+      <!-- composite identifiers: drawn above the nodes so they stay visible where they meet the boxes -->
+      <g pointer-events="none">
+      <g v-for="k in keyCrosses" :key="k.id">
+        <path :d="k.d" fill="none" :stroke="c.ink" stroke-width="1.5" stroke-linejoin="round" />
+        <circle :cx="k.dot.x" :cy="k.dot.y" r="3.5" :fill="c.ink" />
+      </g>
       </g>
 
       <!-- connect handle (selected node) and rubber band -->

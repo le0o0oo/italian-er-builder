@@ -131,7 +131,6 @@ export default {
   'insp.name': 'Name',
   'insp.pk': 'Primary key:',
   'insp.pkNone': ' none — mark attributes with the key button',
-  'insp.pkComposite': 'Composite: the marked items together identify the entity (joined by a curve).',
   'insp.identifiedBy': 'Identified by relationships',
   'insp.identifiedByEmpty': 'Connect this entity to a relationship to use it as (part of) the identifier.',
   'insp.identifiedByHelp': 'Tick several to make the relationships together (optionally with identifier attributes) the primary key — they\'re joined by a curve.',

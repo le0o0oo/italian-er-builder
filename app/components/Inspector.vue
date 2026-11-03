@@ -62,7 +62,6 @@ function toggleChild(g: { childIds: string[] }, id: string, on: boolean | 'indet
           <span class="font-medium">{{ t('insp.pk') }}</span>
           <span v-if="primaryKey"> {{ primaryKey }}</span>
           <span v-else class="text-muted-foreground">{{ t('insp.pkNone') }}</span>
-          <span v-if="primaryKey.includes('+')" class="block text-muted-foreground">{{ t('insp.pkComposite') }}</span>
         </p>
 
         <div class="space-y-2">
