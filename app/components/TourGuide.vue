@@ -130,7 +130,7 @@ defineExpose({ start })
 
 <template>
   <Dialog v-model:open="chooseOpen" @update:open="(o: boolean) => { if (!o) choose() }">
-    <DialogContent class="sm:max-w-lg">
+    <DialogContent class="sm:max-w-lg max-w-max">
       <DialogHeader>
         <DialogTitle class="flex items-center gap-2"><Icon name="lucide:shapes" /> {{ t('notation.askTitle') }}</DialogTitle>
         <DialogDescription>{{ t('notation.askText') }}</DialogDescription>
