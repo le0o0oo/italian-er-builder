@@ -42,7 +42,8 @@ const canvas = ref<{ revealSelected: () => void, focusNode: (id: string) => void
 const fileInput = ref<HTMLInputElement>()
 
 const { load: loadRules } = useWarnings()
-onMounted(() => { init(); shortcuts.load(); loadRules() })
+const { load: loadHints } = useHints()
+onMounted(() => { init(); shortcuts.load(); loadRules(); loadHints() })
 function focusFromWarning(id: string) {
   setMode('select')
   selectedId.value = id
@@ -311,6 +312,7 @@ const hint = computed(() => {
           </DropdownMenuContent>
         </DropdownMenu>
         <WarningsPanel @focus="focusFromWarning" />
+        <HintsPanel @focus="focusFromWarning" />
         <Tip :text="t('tip.shortcuts')"><Button class="max-md:hidden" variant="ghost" size="icon" @click="shortcutsOpen = true"><Icon name="lucide:keyboard" /></Button></Tip>
         <Tip :text="t('tip.theme')">
           <Button variant="ghost" size="icon" aria-label="Toggle theme" @click="colorMode.preference = colorMode.value === 'dark' ? 'light' : 'dark'">

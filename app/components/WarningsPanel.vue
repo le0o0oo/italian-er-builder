@@ -21,7 +21,7 @@ const open = ref(false)
         </label>
       </div>
 
-      <div v-if="enabled" class="max-h-52 space-y-1 overflow-y-auto">
+      <div v-if="enabled" class="max-h-52 space-y-1 overflow-x-hidden overflow-y-auto">
         <p v-if="!warnings.length" class="flex items-center gap-2 rounded-md bg-emerald-500/10 px-2 py-2 text-sm text-emerald-600 dark:text-emerald-400">
           <Icon name="lucide:circle-check" /> {{ t('warn.none') }}
         </p>
@@ -38,7 +38,7 @@ const open = ref(false)
 
       <Separator />
       <p class="text-xs font-medium tracking-wide text-muted-foreground uppercase">{{ t('warn.rules') }}</p>
-      <div class="max-h-60 space-y-2.5 overflow-y-auto pr-1">
+      <div class="max-h-60 space-y-2.5 overflow-x-hidden overflow-y-auto pr-1">
         <div v-for="r in RULES" :key="r.id" class="flex items-start gap-3">
           <Switch class="mt-0.5" :model-value="rules[r.id]" :disabled="!enabled" @update:model-value="setRule(r.id, $event === true)" />
           <div class="min-w-0">

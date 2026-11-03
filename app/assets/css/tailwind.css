@@ -122,6 +122,25 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    /* slim, subtle scrollbars instead of the chunky native ones */
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--muted-foreground) 45%, transparent) transparent;
+    }
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+    }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+    }
+  *::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--muted-foreground) 45%, transparent);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+    }
+  *::-webkit-scrollbar-button {
+    display: none;
     }
   body {
     @apply bg-background text-foreground;

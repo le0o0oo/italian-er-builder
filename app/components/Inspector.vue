@@ -4,6 +4,7 @@ import type { Card } from '~/types/er'
 const { diagram, selected, remove, addLink, select } = useDiagram()
 const { label } = useShortcuts()
 const { byNode } = useWarnings()
+const { byNode: hinted } = useHints()
 const { t } = useT()
 const cards: Card[] = ['0,1', '1,1', '0,N', '1,N']
 const entityName = (id: string) => diagram.value.entities.find(e => e.id === id)?.name ?? '?'
@@ -48,6 +49,10 @@ function toggleChild(g: { childIds: string[] }, id: string, on: boolean | 'indet
 
       <ul v-if="byNode[selected.id]?.length" class="space-y-1 rounded-md bg-amber-500/10 px-2 py-1.5 text-xs text-amber-700 dark:text-amber-400">
         <li v-for="w in byNode[selected.id]" :key="w.id" class="flex items-start gap-1.5"><Icon name="lucide:triangle-alert" class="mt-0.5 shrink-0" /> {{ w.message }}</li>
+      </ul>
+
+      <ul v-if="hinted[selected.id]?.length" class="space-y-1 rounded-md bg-sky-500/10 px-2 py-1.5 text-xs text-sky-700 dark:text-sky-400">
+        <li v-for="h in hinted[selected.id]" :key="h.id" class="flex items-start gap-1.5"><Icon name="lucide:lightbulb" class="mt-0.5 shrink-0" /> {{ h.message }}</li>
       </ul>
 
       <!-- Entity -->
