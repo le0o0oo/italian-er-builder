@@ -141,6 +141,7 @@ export default {
   'attr.none': 'Ancora nessun attributo.',
   'attr.card': 'Cardinalità dell\'attributo',
   'attr.key': 'Parte dell\'identificatore. Più attributi marcati formano un identificatore composto',
+  'attr.derived': 'Attributo derivato (tratteggiato)',
   'attr.remove': 'Rimuovi attributo',
 
   'sc.title': 'Scorciatoie da tastiera',

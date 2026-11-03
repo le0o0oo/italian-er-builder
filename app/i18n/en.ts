@@ -146,6 +146,7 @@ export default {
   'attr.none': 'No attributes yet.',
   'attr.card': 'Attribute cardinality',
   'attr.key': 'Part of the primary key. Several marked attributes form one composite key',
+  'attr.derived': 'Derived attribute (drawn dashed)',
   'attr.remove': 'Remove attribute',
 
   // shortcuts

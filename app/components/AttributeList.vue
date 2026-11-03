@@ -31,6 +31,9 @@ const cards: Card[] = ['1,1', '0,1', '1,N', '0,N']
       <Button size="icon-sm" :variant="a.identifier ? 'default' : 'outline'" :title="t('attr.key')" @click="a.identifier = !a.identifier">
         <Icon name="lucide:key-round" />
       </Button>
+      <Button size="icon-sm" :variant="a.derived ? 'default' : 'outline'" :title="t('attr.derived')" @click="a.derived = !a.derived">
+        <Icon name="lucide:square-function" />
+      </Button>
       <Button size="icon-sm" variant="ghost" :title="t('attr.remove')" @click="node.attributes.splice(i, 1)">
         <Icon name="lucide:x" />
       </Button>

@@ -11,8 +11,8 @@ const c = useErColors()
   <g v-if="attributes.length">
     <line :x1="spineX" :y1="startY" :x2="spineX" :y2="yAt(attributes.length - 1)" :stroke="c.ink" stroke-width="1.5" />
     <g v-for="(a, i) in attributes" :key="a.id">
-      <line :x1="spineX" :x2="spineX + 22" :y1="yAt(i)" :y2="yAt(i)" :stroke="c.ink" stroke-width="1.5" />
-      <circle :cx="spineX + 27" :cy="yAt(i)" r="5" :fill="a.identifier ? c.ink : c.paper" :stroke="c.ink" stroke-width="1.5" />
+      <line :x1="spineX" :x2="spineX + 22" :y1="yAt(i)" :y2="yAt(i)" :stroke="c.ink" stroke-width="1.5" :stroke-dasharray="a.derived ? '4 3' : undefined" />
+      <circle :cx="spineX + 27" :cy="yAt(i)" r="5" :fill="a.identifier ? c.ink : c.paper" :stroke="c.ink" stroke-width="1.5" :stroke-dasharray="a.derived ? '3 2' : undefined" />
       <text :x="spineX + 38" :y="yAt(i)" dominant-baseline="central" font-size="13" :fill="c.ink">
         {{ a.name }}<tspan v-if="a.card !== '1,1'" :fill="c.muted"> ({{ a.card }})</tspan>
       </text>

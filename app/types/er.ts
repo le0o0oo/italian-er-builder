@@ -7,6 +7,8 @@ export interface Attribute {
   identifier: boolean
   /** Shown only when different from the implicit (1,1). */
   card: Card
+  /** Derived attribute: drawn dashed. Missing in old saves = not derived. */
+  derived?: boolean
 }
 
 export interface Entity {

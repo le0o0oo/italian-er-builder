@@ -23,7 +23,7 @@ export function toMermaid(d: Diagram): string {
   for (const e of d.entities) names.set(e.id, unique(e.name, 'Entity'))
   for (const r of d.relationships) names.set(r.id, unique(r.name, 'Relationship'))
 
-  const attrLines = (attrs: { name: string, identifier: boolean, card: Card }[], isEntity: boolean) => {
+  const attrLines = (attrs: { name: string, identifier: boolean, card: Card, derived?: boolean }[], isEntity: boolean) => {
     const seen = new Set<string>()
     return attrs.map((a) => {
       let base = ascii(a.name) || 'attribute'
@@ -31,7 +31,8 @@ export function toMermaid(d: Diagram): string {
       let name = base
       for (let i = 2; seen.has(name); i++) name = `${base}_${i}`
       seen.add(name)
-      const note = a.card === '1,1' ? '' : ` ${quote(`(${a.card})`)}`
+      const bits = [a.card === '1,1' ? '' : `(${a.card})`, a.derived ? 'derived' : ''].filter(Boolean)
+      const note = bits.length ? ` ${quote(bits.join(' '))}` : ''
       return `        string ${name}${isEntity && a.identifier ? ' PK' : ''}${note}`
     })
   }
