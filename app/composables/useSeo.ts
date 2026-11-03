@@ -10,7 +10,7 @@ export function useSeo(opts: { title: () => string, description: () => string })
     ogDescription: opts.description,
     ogType: 'website',
     ogUrl: canonical,
-    ogSiteName: 'ER Maker',
+    ogSiteName: 'ER Builder',
     twitterCard: 'summary',
     twitterTitle: opts.title,
     twitterDescription: opts.description,

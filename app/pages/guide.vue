@@ -12,7 +12,7 @@ const cards = [
 <template>
   <main class="mx-auto max-w-3xl space-y-10 px-5 py-12">
     <nav class="flex items-center justify-between text-sm">
-      <NuxtLink to="/" class="flex items-center gap-2 font-semibold"><Icon name="lucide:git-fork" /> ER Maker</NuxtLink>
+      <NuxtLink to="/" class="flex items-center gap-2 font-semibold"><Icon name="lucide:git-fork" /> ER Builder</NuxtLink>
       <Button as-child size="sm"><NuxtLink to="/">{{ t('guide.open') }}</NuxtLink></Button>
     </nav>
 

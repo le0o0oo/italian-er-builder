@@ -12,7 +12,7 @@ useHead({
     innerHTML: JSON.stringify({
       '@context': 'https://schema.org',
       '@type': 'WebApplication',
-      'name': 'ER Maker',
+      'name': 'ER Builder',
       'url': canonical,
       'applicationCategory': 'DeveloperApplication',
       'operatingSystem': 'Any (web browser)',
@@ -216,7 +216,7 @@ const hint = computed(() => {
         <DropdownMenu>
           <DropdownMenuTrigger as-child>
             <Button variant="ghost" class="gap-2 font-semibold">
-              <Icon name="lucide:git-fork" class="size-4" /> <span class="hidden sm:inline">ER Maker</span> <Icon name="lucide:chevron-down" class="size-3.5 opacity-60" />
+              <Icon name="lucide:git-fork" class="size-4" /> <span class="hidden sm:inline">ER Builder</span> <Icon name="lucide:chevron-down" class="size-3.5 opacity-60" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" class="w-52">

@@ -1,4 +1,4 @@
-# er-maker
+# er-builder
 
 Nuxt 4 app (pnpm).
 

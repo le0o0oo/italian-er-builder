@@ -1,16 +1,16 @@
 export default {
   // seo / crawlable text
-  'seo.title': 'ER Maker – Free online ER diagram maker (Italian notation)',
+  'seo.title': 'ER Builder – Free online ER diagram maker (Italian notation)',
   'seo.desc': 'Draw entity-relationship diagrams in the Italian notation right in your browser: entities, relationships, (min,max) cardinalities, identifiers and generalizations. Auto layout, design warnings, export to PNG, SVG and Mermaid.',
-  'sr.about': 'About ER Maker',
-  'sr.h1': 'ER Maker: online ER diagram maker using the Italian notation',
+  'sr.about': 'About ER Builder',
+  'sr.h1': 'ER Builder: online ER diagram maker using the Italian notation',
   'sr.p': 'Build entity-relationship diagrams visually: add entities, relationships and generalizations, set (min,max) cardinalities, mark identifiers and composite keys, and connect elements by dragging.',
   'sr.li1': 'Italian notation: rectangles for entities, diamonds for relationships, circles for attributes',
   'sr.li2': 'Several automatic layouts: organic, layered, radial, circular and grid',
   'sr.li3': 'Design warnings, for example entities without a primary key',
   'sr.li4': 'Export as PNG, SVG, JSON or Mermaid',
   'sr.guide': 'Guide to the Italian ER notation',
-  'sr.noscript': 'ER Maker needs JavaScript to draw diagrams.',
+  'sr.noscript': 'ER Builder needs JavaScript to draw diagrams.',
 
   // defaults & sample
   'default.entity': 'Entity',
@@ -225,11 +225,11 @@ export default {
   'msg.gen-min-children': '{label} has only one child',
 
   // guide page
-  'guide.seoTitle': 'Italian ER notation guide – entities, cardinalities, generalizations | ER Maker',
+  'guide.seoTitle': 'Italian ER notation guide – entities, cardinalities, generalizations | ER Builder',
   'guide.seoDesc': 'A short guide to the Italian entity-relationship notation: entities, relationships, attributes, identifiers, (min,max) cardinalities and generalizations with (t,e) coverage.',
   'guide.open': 'Open the editor',
   'guide.h1': 'The Italian ER notation',
-  'guide.intro': 'The Italian notation (the one taught in Italian database courses) is a compact way of drawing entity-relationship diagrams for conceptual database design. This page summarises its elements, as drawn by ER Maker.',
+  'guide.intro': 'The Italian notation (the one taught in Italian database courses) is a compact way of drawing entity-relationship diagrams for conceptual database design. This page summarises its elements, as drawn by ER Builder.',
   'guide.entities': 'Entities',
   'guide.entitiesText': 'An entity is a class of objects with common properties, drawn as a rectangle containing its name, such as Employee or Department.',
   'guide.relationships': 'Relationships',
@@ -247,6 +247,6 @@ export default {
   'guide.generalizationsText1': 'A generalization expresses an is-a hierarchy between a parent entity and its children. It is drawn as an arrow pointing at the parent, and children inherit the parent\'s attributes and identifier.',
   'guide.generalizationsText2': 'The coverage is written as (x,y): t total or p partial, and e exclusive or s overlapping (sovrapposta). For example, (t,e) means every parent instance belongs to exactly one child entity.',
   'guide.try': 'Try it',
-  'guide.tryText': 'ER Maker draws all of this in your browser, lays the diagram out automatically, warns about common design mistakes and exports to PNG, SVG, JSON and Mermaid.',
+  'guide.tryText': 'ER Builder draws all of this in your browser, lays the diagram out automatically, warns about common design mistakes and exports to PNG, SVG, JSON and Mermaid.',
   'guide.start': 'Start drawing',
 } as Record<string, string>
