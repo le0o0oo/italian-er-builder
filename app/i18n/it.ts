@@ -211,6 +211,7 @@ export default {
   'rule.default-names': 'Nessun nome predefinito',
   'rule.default-names.desc': 'Segnala nomi come «Entità 1» mai modificati.',
   'hint.button': 'Suggerimenti',
+  'hint.turnOff': 'Disattiva questo tipo di suggerimento',
   'hint.heading': 'Suggerimenti',
   'hint.none': 'Nessun suggerimento al momento',
   'hint.disabled': 'I suggerimenti sono disattivati.',

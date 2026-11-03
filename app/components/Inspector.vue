@@ -4,7 +4,7 @@ import type { Card } from '~/types/er'
 const { diagram, selected, remove, addLink, select } = useDiagram()
 const { label } = useShortcuts()
 const { byNode } = useWarnings()
-const { byNode: hinted } = useHints()
+const { byNode: hinted, setRule } = useHints()
 const { t } = useT()
 const cards: Card[] = ['0,1', '1,1', '0,N', '1,N']
 const entityName = (id: string) => diagram.value.entities.find(e => e.id === id)?.name ?? '?'
@@ -52,7 +52,13 @@ function toggleChild(g: { childIds: string[] }, id: string, on: boolean | 'indet
       </ul>
 
       <ul v-if="hinted[selected.id]?.length" class="space-y-1 rounded-md bg-sky-500/10 px-2 py-1.5 text-xs text-sky-700 dark:text-sky-400">
-        <li v-for="h in hinted[selected.id]" :key="h.id" class="flex items-start gap-1.5"><Icon name="lucide:lightbulb" class="mt-0.5 shrink-0" /> {{ h.message }}</li>
+        <li v-for="h in hinted[selected.id]" :key="h.id" class="flex items-start gap-1.5">
+          <Icon name="lucide:lightbulb" class="mt-0.5 shrink-0" />
+          <span class="min-w-0 flex-1">{{ h.message }}</span>
+          <Tip :text="t('hint.turnOff')" side="left">
+            <Button variant="outline" size="icon" class="size-6 shrink-0 border-sky-500/40 bg-background/60 text-sky-700 hover:border-sky-500 hover:bg-sky-500/20 hover:text-sky-700 dark:text-sky-400" :aria-label="t('hint.turnOff')" @click="setRule(h.ruleId, false)"><Icon name="lucide:eye-off" class="size-3.5" /></Button>
+          </Tip>
+        </li>
       </ul>
 
       <!-- Entity -->

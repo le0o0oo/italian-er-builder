@@ -218,6 +218,7 @@ export default {
   'rule.default-names': 'No default names',
   'rule.default-names.desc': 'Flags names like “Entity 1” that were never changed.',
   'hint.button': 'Hints',
+  'hint.turnOff': 'Turn off this type of hint',
   'hint.heading': 'Hints',
   'hint.none': 'No hints right now',
   'hint.disabled': 'Hints are turned off.',
