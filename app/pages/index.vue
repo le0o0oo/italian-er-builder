@@ -320,7 +320,7 @@ const hint = computed(() => {
         <DrawerContent hide-overlay data-inspector :data-snap="snap" class="h-[60dvh]">
           <DrawerTitle class="sr-only">{{ selected ? t(`insp.${selected.kind}`) : '' }}</DrawerTitle>
           <DrawerDescription class="sr-only">{{ selected?.name }}</DrawerDescription>
-          <div class="min-h-0 flex-1 overflow-y-auto"><Inspector /></div>
+          <div :class="['min-h-0 flex-1', snap === SNAP_HALF ? 'overflow-hidden' : 'overflow-y-auto']"><Inspector /></div>
         </DrawerContent>
       </Drawer>
 
