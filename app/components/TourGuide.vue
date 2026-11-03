@@ -1,9 +1,29 @@
 <script setup lang="ts">
+import type { Notation } from '~/utils/notation'
 /** First-visit tour: asks once, then spotlights parts of the UI. Re-runnable via `start()`. */
 const STORAGE_KEY = 'er-maker:tour-done'
 const { t } = useT()
 const askOpen = ref(false)
+const chooseOpen = ref(false)
 const running = ref(false)
+const { notation, set: setNotation } = useNotation()
+const { fitRequest } = useDiagram()
+const NOTATION_KEY = 'er-maker:notation'
+/** First-visit notation picker; once closed, the tour offer follows. */
+function choose(n?: Notation) {
+  setNotation(n ?? notation.value)
+  chooseOpen.value = false
+  fitRequest.value++
+  setTimeout(() => (askOpen.value = true), 250)
+}
+// the "notation" step flips between both renderings
+const demoNotation = ref<Notation>('italian')
+let flip: ReturnType<typeof setInterval> | undefined
+watch(running, (r) => {
+  clearInterval(flip)
+  if (r) flip = setInterval(() => (demoNotation.value = demoNotation.value === 'italian' ? 'crow' : 'italian'), 2600)
+})
+onUnmounted(() => clearInterval(flip))
 const index = ref(0)
 const rect = ref<{ x: number, y: number, w: number, h: number } | null>(null)
 const card = ref<HTMLElement>()
@@ -22,6 +42,7 @@ const steps: Step[] = [
   { id: 'search', target: 'topright' },
   { id: 'warnings', target: 'topright' },
   { id: 'zoom', m: true, target: 'zoom' },
+  { id: 'notation', target: 'menu' },
   { id: 'menu', target: 'menu' },
 ]
 const mobile = ref(false)
@@ -92,8 +113,13 @@ onMounted(() => {
   window.addEventListener('keydown', onKey, true)
   window.addEventListener('resize', place)
   let done = false
-  try { done = localStorage.getItem(STORAGE_KEY) === '1' } catch { /* ignore */ }
-  if (!done) setTimeout(() => (askOpen.value = true), 600)
+  let chosen = false
+  try {
+    done = localStorage.getItem(STORAGE_KEY) === '1'
+    chosen = localStorage.getItem(NOTATION_KEY) !== null
+  }
+  catch { /* ignore */ }
+  if (!done) setTimeout(() => { if (chosen) askOpen.value = true; else chooseOpen.value = true }, 600)
 })
 onUnmounted(() => {
   window.removeEventListener('keydown', onKey, true)
@@ -103,6 +129,30 @@ defineExpose({ start })
 </script>
 
 <template>
+  <Dialog v-model:open="chooseOpen" @update:open="(o: boolean) => { if (!o) choose() }">
+    <DialogContent class="sm:max-w-lg">
+      <DialogHeader>
+        <DialogTitle class="flex items-center gap-2"><Icon name="lucide:shapes" /> {{ t('notation.askTitle') }}</DialogTitle>
+        <DialogDescription>{{ t('notation.askText') }}</DialogDescription>
+      </DialogHeader>
+      <div class="grid gap-3 sm:grid-cols-2">
+        <button
+          v-for="n in NOTATIONS"
+          :key="n.id"
+          type="button"
+          class="space-y-2 rounded-lg border p-2 text-left transition-colors hover:border-primary hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          @click="choose(n.id)"
+        >
+          <NotationPreview :kind="n.id" />
+          <span class="block px-1 pb-1">
+            <span class="block text-sm font-semibold">{{ t(`notation.${n.id}`) }}</span>
+            <span class="block text-xs text-muted-foreground">{{ t(`notation.${n.id}.hint`) }}</span>
+          </span>
+        </button>
+      </div>
+    </DialogContent>
+  </Dialog>
+
   <Dialog v-model:open="askOpen" @update:open="(o: boolean) => { if (!o && !running) markDone() }">
     <DialogContent class="sm:max-w-md">
       <DialogHeader>
@@ -132,6 +182,10 @@ defineExpose({ start })
         <div class="flex items-start justify-between gap-2">
           <p class="font-semibold">{{ t(`${key}.title`) }}</p>
           <span class="shrink-0 text-xs text-muted-foreground">{{ index + 1 }} / {{ steps.length }}</span>
+        </div>
+        <div v-if="step.id === 'notation'" class="space-y-1">
+          <NotationPreview :kind="demoNotation" />
+          <p class="text-center text-xs font-medium text-muted-foreground">{{ t(`notation.${demoNotation}`) }}</p>
         </div>
         <TourDemo v-if="step.demo" :key="`${step.id}${mobile}`" :scenario="step.demo" :mobile="mobile" />
         <p class="text-sm text-muted-foreground">{{ t(`${key}.text`) }}</p>

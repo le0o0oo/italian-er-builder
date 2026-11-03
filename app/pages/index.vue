@@ -2,6 +2,7 @@
 import type { Diagram } from '~/types/er'
 import type { LayoutStrategy } from '~/utils/layout'
 import type { Locale } from '~/utils/i18n'
+import type { Notation } from '~/utils/notation'
 
 const { t, locale } = useT()
 const { canonical } = useSeo({ title: () => t('seo.title'), description: () => t('seo.desc') })
@@ -43,7 +44,12 @@ const fileInput = ref<HTMLInputElement>()
 
 const { load: loadRules } = useWarnings()
 const { load: loadHints } = useHints()
-onMounted(() => { init(); shortcuts.load(); loadRules(); loadHints() })
+const { notation, set: setNotation, load: loadNotation } = useNotation()
+onMounted(() => { loadNotation(); if (notation.value === 'crow') setTimeout(() => canvas.value?.fit(), 100); init(); shortcuts.load(); loadRules(); loadHints() })
+function pickNotation(n: Notation) {
+  setNotation(n)
+  nextTick(() => canvas.value?.fit())
+}
 function focusFromWarning(id: string) {
   setMode('select')
   selectedId.value = id
@@ -247,6 +253,16 @@ const hint = computed(() => {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem @select="exportMermaid"><Icon name="lucide:workflow" /> {{ t('menu.mermaid') }}</DropdownMenuItem>
                 <DropdownMenuItem @select="copyMermaid"><Icon name="lucide:clipboard-copy" /> {{ t('menu.copyMermaid') }}</DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger><Icon name="lucide:shapes" /> {{ t('menu.notation') }}</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent class="w-56">
+                <DropdownMenuRadioGroup :model-value="notation" @update:model-value="pickNotation($event as Notation)">
+                  <DropdownMenuRadioItem v-for="n in NOTATIONS" :key="n.id" :value="n.id">
+                    <span class="flex flex-col"><span>{{ t(`notation.${n.id}`) }}</span><span class="text-xs text-muted-foreground">{{ t(`notation.${n.id}.hint`) }}</span></span>
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
               </DropdownMenuSubContent>
             </DropdownMenuSub>
             <DropdownMenuSeparator />

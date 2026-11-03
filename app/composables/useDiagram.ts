@@ -256,6 +256,7 @@ export function useDiagram() {
 
   /** Everything that affects layout except the positions themselves. */
   const structure = computed(() => JSON.stringify([
+    notation.value,
     diagram.value.entities.map(e => [e.id, e.name, e.attributes.map(a => [a.name, a.card])]),
     diagram.value.relationships.map(r => [r.id, r.name, r.attributes.map(a => [a.name, a.card]), r.links.map(l => l.entityId)]),
     diagram.value.generalizations.map(g => [g.id, g.parentId, g.childIds]),
@@ -279,6 +280,9 @@ export function useDiagram() {
     catch { /* storage unavailable */ }
     if (autoLayout.value) runLayout({ animate: false })
     let layoutTimer: ReturnType<typeof setTimeout> | undefined
+    watch(() => Object.fromEntries(diagram.value.entities.map(e => [e.id, diagram.value.relationships.filter(r => r.links.some(l => l.entityId === e.id && l.identifying)).map(r => r.name)])), (v) => {
+      identifyingRows.value = v
+    }, { immediate: true, flush: 'sync' })
     watch(structure, () => {
       if (!autoLayout.value) return
       clearTimeout(layoutTimer)

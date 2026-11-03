@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import type { DiagramNode, Entity, Generalization, Relationship } from '~/types/er'
+import type { Card, DiagramNode, Entity, Generalization, Relationship } from '~/types/er'
 
 const { diagram, selectedId, mode, pendingId, isEmpty, find, select, addEntity, addRelationship, addGeneralization, connectNodes, addRelationshipBetween, addRelationshipFor, makeChildOf, addAttribute, remove, duplicate, addGeneralizationFor, autoLayout, runLayout } = useDiagram()
 const c = useErColors()
 const { byNode: warned } = useWarnings()
 const { label: key } = useShortcuts()
 const { t } = useT()
+const crow = computed(() => notation.value === 'crow')
 const ctxNode = shallowRef<DiagramNode | null>(null)
 const ctxPoint = ref({ x: 0, y: 0 })
 
@@ -133,8 +134,8 @@ function hitNode(p: { x: number, y: number }, from: DiagramNode): DiagramNode | 
     const dy = Math.abs(p.y - n.y)
     let inside = false
     if (n.kind === 'entity') { const { w, h } = nodeSize(n); inside = dx <= w / 2 + 6 && dy <= h / 2 + 6 }
-    else if (n.kind === 'relationship') { const { w, h } = nodeSize(n); inside = dx / (w / 2 + 6) + dy / (h / 2 + 6) <= 1 }
-    else inside = Math.hypot(dx, dy) <= 26
+    else if (n.kind === 'relationship') { const { w, h } = nodeSize(n); inside = crow.value ? dx <= w / 2 + 6 && dy <= h / 2 + 6 : dx / (w / 2 + 6) + dy / (h / 2 + 6) <= 1 }
+    else inside = Math.hypot(dx, dy) <= (crow.value ? 18 : 26)
     if (!inside) continue
     const ok = from.kind === 'entity' || n.kind === 'entity'
     if (ok) return n
@@ -271,7 +272,7 @@ const combDir = (id: string) => combDirs.value[id] ?? 1
 
 // ---- geometry for links & generalizations ----
 const lines = computed(() => {
-  const out: { entityId: string, id: string, x1: number, y1: number, x2: number, y2: number, lx: number, ly: number, card: string, identifying: boolean }[] = []
+  const out: { entityId: string, id: string, x1: number, y1: number, x2: number, y2: number, lx: number, ly: number, card: string, identifying: boolean, mark: Card }[] = []
   for (const rel of diagram.value.relationships) {
     for (const [i, link] of rel.links.entries()) {
       const ent = diagram.value.entities.find(e => e.id === link.entityId)
@@ -289,6 +290,8 @@ const lines = computed(() => {
         entityId: ent.id, id: `${rel.id}-${link.id}-${i}`, x1: q.x, y1: q.y, x2: p.x, y2: p.y,
         lx: (p.x + q.x) / 2, ly: (p.y + q.y) / 2,
         card: `(${link.card})`, identifying: link.identifying,
+        // crow's foot: the symbol at an entity's end says how many of that entity relate to ONE of the other (binary: the other link's cardinality)
+        mark: rel.links.length === 2 ? rel.links[1 - i]!.card : link.card,
       })
     }
   }
@@ -469,7 +472,7 @@ const gens = computed(() => diagram.value.generalizations.map((g) => {
   // The arrow sits on the parent's border (pointing at it); the node itself is the junction of the child lines.
   const edge = parent ? edgePoint(parent, g) : null
   const ARROW = 26
-  const base = edge ? { x: edge.x - Math.cos(angle) * ARROW, y: edge.y - Math.sin(angle) * ARROW } : null
+  const base = edge ? (crow.value ? { x: edge.x, y: edge.y } : { x: edge.x - Math.cos(angle) * ARROW, y: edge.y - Math.sin(angle) * ARROW }) : null
   // Dashed hints for the missing half of an unfinished generalization.
   const stubs: { label: string, x1: number, y1: number, x2: number, y2: number, lx: number, ly: number }[] = []
   const stub = (label: string, dir: number, startOffset: number) => {
@@ -488,7 +491,7 @@ const gens = computed(() => diagram.value.generalizations.map((g) => {
   const ly = g.y + Math.cos(angle) * 20
   const notation = `(${g.total ? 't' : 'p'},${g.exclusive === false ? 's' : 'e'})`
   return {
-    g, stubs, notation, lx, ly, angle: angle * 180 / Math.PI,
+    g, stubs, notation, lx, ly, angle: angle * 180 / Math.PI, letter: g.exclusive === false ? 'o' : 'd',
     parentLine: base ? { from: { x: g.x, y: g.y }, to: base } : null,
     arrow: edge ? { x: edge.x, y: edge.y } : null,
     childLines: g.childIds.flatMap((id) => {
@@ -502,9 +505,37 @@ const isSel = (n: { id: string }) => selectedId.value === n.id
 const isPending = (n: { id: string }) => pendingId.value === n.id
 const outline = (n: Entity | Relationship) => {
   const { w, h } = nodeSize(n)
-  return n.kind === 'entity'
+  return n.kind === 'entity' || crow.value
     ? { points: '', x: -w / 2 - 5, y: -h / 2 - 5, w: w + 10, h: h + 10 }
     : { points: `0,${-h / 2 - 6} ${w / 2 + 6},0 0,${h / 2 + 6} ${-w / 2 - 6},0`, x: 0, y: 0, w: 0, h: 0 }
+}
+/** Crow's foot end symbols at `(x, y)` (on the entity's border), `(ux, uy)` pointing away from the entity along the line. */
+function crowEnd(x: number, y: number, ux: number, uy: number, card: Card) {
+  const [min, max] = card.split(',')
+  const nx = -uy
+  const ny = ux
+  const at = (d: number, s = 0) => `${x + ux * d + nx * s} ${y + uy * d + ny * s}`
+  let path = ''
+  let d = 6
+  if (max === 'N') {
+    path += `M${at(13)}L${at(0, 7)}M${at(13)}L${at(0)}M${at(13)}L${at(0, -7)}`
+    d = 13
+  }
+  else path += `M${at(6, 7)}L${at(6, -7)}`
+  const gap = 8
+  if (min === '1') path += `M${at(d + gap, 7)}L${at(d + gap, -7)}`
+  return { path, circle: min === '0' ? { cx: x + ux * (d + gap + 4), cy: y + uy * (d + gap + 4) } : null }
+}
+const ends = computed(() => Object.fromEntries(lines.value.map((l) => {
+  const len = Math.hypot(l.x1 - l.x2, l.y1 - l.y2) || 1
+  return [l.id, crowEnd(l.x2, l.y2, (l.x1 - l.x2) / len, (l.y1 - l.y2) / len, l.mark)]
+})))
+/** two parallel lines (total participation in a generalization) */
+const parallel = (a: P, b: P, off: number) => {
+  const len = Math.hypot(b.x - a.x, b.y - a.y) || 1
+  const nx = -(b.y - a.y) / len * off
+  const ny = (b.x - a.x) / len * off
+  return { x1: a.x + nx, y1: a.y + ny, x2: b.x + nx, y2: b.y + ny }
 }
 const diamond = (n: Relationship) => {
   const { w, h } = nodeSize(n)
@@ -640,38 +671,56 @@ onMounted(() => {
     <g ref="content" :transform="`translate(${view.x} ${view.y}) scale(${view.k})`" font-family="Arial, Helvetica, sans-serif">
       <!-- relationship ↔ entity lines -->
       <g v-for="l in lines" :key="l.id">
-        <line :x1="l.x1" :y1="l.y1" :x2="l.x2" :y2="l.y2" :stroke="c.ink" stroke-width="1.5" />
-        <circle v-if="l.identifying" :cx="l.x2" :cy="l.y2" r="8" :fill="c.ink" />
-        <text :x="l.lx" :y="l.ly" text-anchor="middle" dominant-baseline="central" font-size="12.5" font-weight="600" :fill="c.ink" :stroke="c.paper" stroke-width="4" paint-order="stroke">{{ l.card }}</text>
+        <line :x1="l.x1" :y1="l.y1" :x2="l.x2" :y2="l.y2" :stroke="c.ink" stroke-width="1.5" :stroke-dasharray="crow && !l.identifying ? '7 5' : undefined" />
+        <template v-if="crow">
+          <path :d="ends[l.id]!.path" fill="none" :stroke="c.ink" stroke-width="1.5" stroke-linecap="round" />
+          <circle v-if="ends[l.id]!.circle" :cx="ends[l.id]!.circle!.cx" :cy="ends[l.id]!.circle!.cy" r="4.5" :fill="c.paper" :stroke="c.ink" stroke-width="1.5" />
+        </template>
+        <circle v-if="l.identifying && !crow" :cx="l.x2" :cy="l.y2" r="8" :fill="c.ink" />
+        <text v-if="!crow" :x="l.lx" :y="l.ly" text-anchor="middle" dominant-baseline="central" font-size="12.5" font-weight="600" :fill="c.ink" :stroke="c.paper" stroke-width="4" paint-order="stroke">{{ l.card }}</text>
       </g>
 
       <!-- generalizations -->
       <g v-for="d in gens" :key="d.g.id" :data-id="d.g.id" :class="autoLayout ? 'cursor-pointer' : 'cursor-move'" @pointerdown.stop="onNodeDown($event, d.g)" @contextmenu="onContext($event, d.g)">
         <line v-for="cl in d.childLines" :key="cl.id" :x1="cl.from.x" :y1="cl.from.y" :x2="cl.to.x" :y2="cl.to.y" :stroke="c.ink" stroke-width="1.5" />
-        <line v-if="d.parentLine" :x1="d.parentLine.from.x" :y1="d.parentLine.from.y" :x2="d.parentLine.to.x" :y2="d.parentLine.to.y" :stroke="c.ink" stroke-width="3.5" />
-        <text :x="d.lx" :y="d.ly" text-anchor="middle" dominant-baseline="central" font-size="12.5" font-weight="600" :fill="c.ink" :stroke="c.paper" stroke-width="4" paint-order="stroke">{{ d.notation }}</text>
+        <template v-if="d.parentLine && crow">
+          <template v-if="d.g.total">
+            <line v-bind="parallel(d.parentLine.from, d.parentLine.to, 2.5)" :stroke="c.ink" stroke-width="1.5" />
+            <line v-bind="parallel(d.parentLine.from, d.parentLine.to, -2.5)" :stroke="c.ink" stroke-width="1.5" />
+          </template>
+          <line v-else :x1="d.parentLine.from.x" :y1="d.parentLine.from.y" :x2="d.parentLine.to.x" :y2="d.parentLine.to.y" :stroke="c.ink" stroke-width="1.5" />
+        </template>
+        <line v-else-if="d.parentLine" :x1="d.parentLine.from.x" :y1="d.parentLine.from.y" :x2="d.parentLine.to.x" :y2="d.parentLine.to.y" :stroke="c.ink" stroke-width="3.5" />
+        <text v-if="!crow" :x="d.lx" :y="d.ly" text-anchor="middle" dominant-baseline="central" font-size="12.5" font-weight="600" :fill="c.ink" :stroke="c.paper" stroke-width="4" paint-order="stroke">{{ d.notation }}</text>
         <g v-for="st in d.stubs" :key="st.label" data-ui pointer-events="none">
           <line :x1="st.x1" :y1="st.y1" :x2="st.x2" :y2="st.y2" :stroke="c.warn" stroke-width="1.5" stroke-dasharray="5 4" />
           <circle :cx="st.x2" :cy="st.y2" r="4" fill="none" :stroke="c.warn" stroke-width="1.5" stroke-dasharray="2 2" />
           <text :x="st.lx" :y="st.ly" text-anchor="middle" dominant-baseline="central" font-size="11" font-style="italic" :fill="c.warn">{{ st.label }}</text>
         </g>
-        <circle v-if="isSel(d.g) || rubber?.target === d.g.id" data-ui :cx="d.g.x" :cy="d.g.y" r="14" fill="none" :stroke="rubber?.target === d.g.id ? c.warn : c.sel" stroke-width="2" stroke-dasharray="4 3" />
-        <circle :cx="d.g.x" :cy="d.g.y" r="6" :fill="c.ink" />
+        <circle v-if="isSel(d.g) || rubber?.target === d.g.id" data-ui :cx="d.g.x" :cy="d.g.y" :r="crow ? 19 : 14" fill="none" :stroke="rubber?.target === d.g.id ? c.warn : c.sel" stroke-width="2" stroke-dasharray="4 3" />
+        <template v-if="crow">
+          <circle :cx="d.g.x" :cy="d.g.y" r="11" :fill="c.paper" :stroke="c.ink" stroke-width="1.8" />
+          <text :x="d.g.x" :y="d.g.y" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="700" :fill="c.ink">{{ d.letter }}</text>
+        </template>
+        <circle v-else :cx="d.g.x" :cy="d.g.y" r="6" :fill="c.ink" />
         <g v-if="warned[d.g.id]" data-ui :transform="`translate(${d.g.x + 14} ${d.g.y - 14})`">
           <circle r="9" fill="#f59e0b" :stroke="c.paper" stroke-width="2" />
           <text text-anchor="middle" dominant-baseline="central" font-size="12" font-weight="800" fill="#fff">!</text>
           <title>{{ warned[d.g.id]!.map(w => w.message).join('\n') }}</title>
         </g>
 
-        <polygon v-if="d.arrow" :transform="`translate(${d.arrow.x} ${d.arrow.y}) rotate(${d.angle})`" points="0,0 -26,-14 -26,14" :fill="d.g.total ? c.ink : c.paper" :stroke="c.ink" stroke-width="2" stroke-linejoin="round" />
+        <polygon v-if="d.arrow && !crow" :transform="`translate(${d.arrow.x} ${d.arrow.y}) rotate(${d.angle})`" points="0,0 -26,-14 -26,14" :fill="d.g.total ? c.ink : c.paper" :stroke="c.ink" stroke-width="2" stroke-linejoin="round" />
       </g>
 
       <!-- entities -->
       <g v-for="e in diagram.entities" :key="e.id" :data-id="e.id" :transform="`translate(${e.x} ${e.y})`" :class="autoLayout ? 'cursor-pointer' : 'cursor-move'" @pointerdown.stop="onNodeDown($event, e)" @contextmenu="onContext($event, e)">
-        <ErAttributes :attributes="e.attributes" :spine-x="-nodeSize(e).w / 2 + 18" :start-y="combDir(e.id) * nodeSize(e).h / 2" :dir="combDir(e.id)" :key-line="attrKeyIsComposite(e)" />
+        <ErAttributes v-if="!crow" :attributes="e.attributes" :spine-x="-nodeSize(e).w / 2 + 18" :start-y="combDir(e.id) * nodeSize(e).h / 2" :dir="combDir(e.id)" :key-line="attrKeyIsComposite(e)" />
         <rect v-if="isSel(e) || isPending(e) || rubber?.target === e.id" data-ui :x="outline(e).x" :y="outline(e).y" :width="outline(e).w" :height="outline(e).h" rx="3" fill="none" :stroke="isPending(e) || rubber?.target === e.id ? c.warn : c.sel" stroke-width="2" stroke-dasharray="5 3" />
-        <rect :x="-nodeSize(e).w / 2" :y="-nodeSize(e).h / 2" :width="nodeSize(e).w" :height="nodeSize(e).h" :fill="c.paper" :stroke="c.ink" stroke-width="2" />
-        <text text-anchor="middle" dominant-baseline="central" font-size="15" font-weight="700" :fill="c.ink">{{ e.name }}</text>
+        <ErBox v-if="crow" :node="e" />
+        <template v-else>
+          <rect :x="-nodeSize(e).w / 2" :y="-nodeSize(e).h / 2" :width="nodeSize(e).w" :height="nodeSize(e).h" :fill="c.paper" :stroke="c.ink" stroke-width="2" />
+          <text text-anchor="middle" dominant-baseline="central" font-size="15" font-weight="700" :fill="c.ink">{{ e.name }}</text>
+        </template>
         <g v-if="warned[e.id]" data-ui :transform="`translate(${nodeSize(e).w / 2} ${-nodeSize(e).h / 2})`">
           <circle r="9" fill="#f59e0b" :stroke="c.paper" stroke-width="2" />
           <text text-anchor="middle" dominant-baseline="central" font-size="12" font-weight="800" fill="#fff">!</text>
@@ -681,11 +730,15 @@ onMounted(() => {
 
       <!-- relationships -->
       <g v-for="r in diagram.relationships" :key="r.id" :data-id="r.id" :transform="`translate(${r.x} ${r.y})`" :class="autoLayout ? 'cursor-pointer' : 'cursor-move'" @pointerdown.stop="onNodeDown($event, r)" @contextmenu="onContext($event, r)">
-        <ErAttributes :attributes="r.attributes" :spine-x="0" :start-y="combDir(r.id) * nodeSize(r).h / 2" :dir="combDir(r.id)" />
-        <polygon v-if="isSel(r) || isPending(r) || rubber?.target === r.id" data-ui :points="outline(r).points" fill="none" :stroke="isPending(r) || rubber?.target === r.id ? c.warn : c.sel" stroke-width="2" stroke-dasharray="5 3" />
-        <polygon :points="diamond(r)" :fill="c.paper" :stroke="c.ink" stroke-width="2" stroke-linejoin="round" />
-        <text text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="600" :fill="c.ink">{{ r.name }}</text>
-        <g v-if="warned[r.id]" data-ui :transform="`translate(${nodeSize(r).w / 4} ${-nodeSize(r).h / 4})`">
+        <ErAttributes v-if="!crow" :attributes="r.attributes" :spine-x="0" :start-y="combDir(r.id) * nodeSize(r).h / 2" :dir="combDir(r.id)" />
+        <rect v-if="crow && (isSel(r) || isPending(r) || rubber?.target === r.id)" data-ui :x="outline(r).x" :y="outline(r).y" :width="outline(r).w" :height="outline(r).h" rx="18" fill="none" :stroke="isPending(r) || rubber?.target === r.id ? c.warn : c.sel" stroke-width="2" stroke-dasharray="5 3" />
+        <polygon v-else-if="isSel(r) || isPending(r) || rubber?.target === r.id" data-ui :points="outline(r).points" fill="none" :stroke="isPending(r) || rubber?.target === r.id ? c.warn : c.sel" stroke-width="2" stroke-dasharray="5 3" />
+        <ErBox v-if="crow" :node="r" />
+        <template v-else>
+          <polygon :points="diamond(r)" :fill="c.paper" :stroke="c.ink" stroke-width="2" stroke-linejoin="round" />
+          <text text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="600" :fill="c.ink">{{ r.name }}</text>
+        </template>
+        <g v-if="warned[r.id]" data-ui :transform="crow ? `translate(${nodeSize(r).w / 2} ${-nodeSize(r).h / 2})` : `translate(${nodeSize(r).w / 4} ${-nodeSize(r).h / 4})`">
           <circle r="9" fill="#f59e0b" :stroke="c.paper" stroke-width="2" />
           <text text-anchor="middle" dominant-baseline="central" font-size="12" font-weight="800" fill="#fff">!</text>
           <title>{{ warned[r.id]!.map(w => w.message).join('\n') }}</title>
@@ -693,7 +746,7 @@ onMounted(() => {
       </g>
 
       <!-- composite identifiers: drawn above the nodes so they stay visible where they meet the boxes -->
-      <g pointer-events="none">
+      <g v-if="!crow" pointer-events="none">
       <g v-for="k in keyCrosses" :key="k.id">
         <path :d="k.d" fill="none" :stroke="c.ink" stroke-width="1.5" stroke-linejoin="round" />
         <circle :cx="k.dot.x" :cy="k.dot.y" r="3.5" :fill="c.ink" />
