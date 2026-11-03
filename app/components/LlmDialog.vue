@@ -28,7 +28,7 @@ function doImport() {
 
 <template>
   <Dialog v-model:open="open">
-    <DialogContent class="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+    <DialogContent class="max-h-[85vh] max-w-max overflow-y-auto sm:max-w-lg">
       <DialogHeader>
         <DialogTitle>{{ t('llm.title') }}</DialogTitle>
         <DialogDescription>{{ t('llm.desc') }}</DialogDescription>
