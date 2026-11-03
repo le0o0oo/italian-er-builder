@@ -130,6 +130,7 @@ function clearAll() {
 
 const shortcuts = useShortcuts()
 const shortcutsOpen = ref(false)
+const tour = ref<{ start: () => void }>()
 const llmOpen = ref(false)
 function importFromLlm(d: Diagram) {
   load(d)
@@ -218,7 +219,7 @@ const hint = computed(() => {
       </div>
 
       <!-- top left: brand + file menu -->
-      <div :class="[panel, 'absolute top-4 left-4']">
+      <div data-tour="menu" :class="[panel, 'absolute top-4 left-4']">
         <DropdownMenu>
           <DropdownMenuTrigger as-child>
             <Button variant="ghost" class="gap-2 font-semibold">
@@ -226,6 +227,7 @@ const hint = computed(() => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" class="w-52">
+            <DropdownMenuItem @select="tour?.start()"><Icon name="lucide:graduation-cap" /> {{ t('menu.tour') }}</DropdownMenuItem>
             <DropdownMenuItem as-child><NuxtLink to="/guide"><Icon name="lucide:book-open" /> {{ t('menu.guide') }}</NuxtLink></DropdownMenuItem>
             <DropdownMenuItem as-child><a href="https://github.com/le0o0oo/italian-er-builder" target="_blank" rel="noopener noreferrer"><Icon name="lucide:github" /> GitHub</a></DropdownMenuItem>
             <DropdownMenuSeparator />
@@ -255,7 +257,7 @@ const hint = computed(() => {
       </div>
 
       <!-- top center: tools -->
-      <div :class="[panel, 'absolute bottom-4 left-1/2 z-10 -translate-x-1/2 md:top-4 md:bottom-auto', selected && 'max-md:hidden']">
+      <div data-tour="tools" :class="[panel, 'absolute bottom-4 left-1/2 z-10 -translate-x-1/2 md:top-4 md:bottom-auto', selected && 'max-md:hidden']">
         <Tip :text="t('tip.addEntity')" shortcut="newEntity">
           <Button variant="ghost" @click="addAt(addEntity)"><Icon name="lucide:square" /><span class="hidden lg:inline">{{ t('tool.entity') }}</span></Button>
         </Tip>
@@ -268,7 +270,7 @@ const hint = computed(() => {
         <Separator orientation="vertical" class="mx-0.5 h-5 data-[orientation=vertical]:self-center" />
         <DropdownMenu>
           <DropdownMenuTrigger as-child>
-            <Button :variant="autoLayout ? 'secondary' : 'ghost'" :title="t('layout.options')">
+            <Button data-tour="layout" :variant="autoLayout ? 'secondary' : 'ghost'" :title="t('layout.options')">
               <Icon name="lucide:wand-sparkles" /><span class="hidden lg:inline">{{ t('layout.title') }}</span>
               <span v-if="autoLayout" class="size-1.5 rounded-full bg-emerald-500" />
             </Button>
@@ -297,7 +299,7 @@ const hint = computed(() => {
       </div>
 
       <!-- top right -->
-      <div :class="[panel, 'absolute top-4 right-4']">
+      <div data-tour="topright" :class="[panel, 'absolute top-4 right-4']">
         <Tip :text="t('tip.search')" shortcut="search"><Button variant="ghost" size="icon" @click="searchOpen = true"><Icon name="lucide:search" /></Button></Tip>
         <DropdownMenu>
           <DropdownMenuTrigger as-child>
@@ -334,7 +336,7 @@ const hint = computed(() => {
       </Drawer>
 
       <!-- bottom left: zoom -->
-      <div :class="[panel, 'absolute bottom-20 left-4 md:bottom-4', selected && 'max-md:hidden']">
+      <div data-tour="zoom" :class="[panel, 'absolute bottom-20 left-4 md:bottom-4', selected && 'max-md:hidden']">
         <Tip :text="t('tip.zoomOut')" side="top"><Button variant="ghost" size="icon" @click="canvas?.zoom(1 / 1.25)"><Icon name="lucide:zoom-out" /></Button></Tip>
         <Tip :text="t('tip.zoomIn')" side="top"><Button variant="ghost" size="icon" @click="canvas?.zoom(1.25)"><Icon name="lucide:zoom-in" /></Button></Tip>
         <Tip :text="t('tip.fit')" shortcut="fit" side="top"><Button variant="ghost" size="icon" @click="canvas?.fit()"><Icon name="lucide:maximize" /></Button></Tip>
@@ -351,6 +353,7 @@ const hint = computed(() => {
       <!-- transient messages -->
       <div v-if="hint || notice" :class="[panel, 'pointer-events-none absolute top-[4.75rem] left-1/2 -translate-x-1/2 bg-neutral-900/90 px-4 text-sm text-white']">{{ hint || notice }}</div>
 
+      <TourGuide ref="tour" />
       <ShortcutsDialog v-model:open="shortcutsOpen" />
       <LlmDialog v-model:open="llmOpen" @import="importFromLlm" />
       <SearchDialog v-model:open="searchOpen" @pick="pickSearch" />
