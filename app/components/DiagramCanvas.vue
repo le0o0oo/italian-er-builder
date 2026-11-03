@@ -114,10 +114,14 @@ function linkClick(node: DiagramNode) {
 // ---- drag the handle of the selected node onto another node to connect them ----
 const rubber = ref<{ from: DiagramNode, x: number, y: number, target: string | null } | null>(null)
 
+/** world size of one screen pixel for the handle (never smaller than 1, so it stays big when zoomed out) */
+const hs = computed(() => Math.max(1, 1 / view.k))
+
 const handle = computed(() => {
   const n = find(selectedId.value)
   if (!n) return null
-  const off = n.kind === 'generalization' ? 34 : nodeSize(n).w / 2 + 22
+  const gap = Math.max(22, (isCoarse.value ? 36 : 24) / view.k) // keeps a constant on-screen gap when zoomed out
+  const off = n.kind === 'generalization' ? 12 + gap : nodeSize(n).w / 2 + gap
   return { node: n, x: n.x + off, y: n.y }
 })
 
@@ -555,8 +559,9 @@ onMounted(() => {
       <!-- connect handle (selected node) and rubber band -->
       <g v-if="handle && !rubber" data-ui class="cursor-crosshair" @pointerdown.stop="onHandleDown">
         <line :x1="handle.node.x" :y1="handle.node.y" :x2="handle.x" :y2="handle.y" :stroke="c.sel" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.7" />
-        <circle :cx="handle.x" :cy="handle.y" :r="isCoarse ? 16 : 11" :fill="c.sel" />
-        <path :d="`M${handle.x - 5} ${handle.y}h10M${handle.x} ${handle.y - 5}v10`" stroke="#fff" stroke-width="2" stroke-linecap="round" />
+        <circle :cx="handle.x" :cy="handle.y" :r="hs * (isCoarse ? 32 : 18)" fill="transparent" />
+        <circle :cx="handle.x" :cy="handle.y" :r="hs * (isCoarse ? 18 : 11)" :fill="c.sel" />
+        <path :d="`M${handle.x - hs * 6} ${handle.y}h${hs * 12}M${handle.x} ${handle.y - hs * 6}v${hs * 12}`" stroke="#fff" :stroke-width="hs * 2.2" stroke-linecap="round" />
         <title>{{ t('canvas.handle') }}</title>
       </g>
       <line v-if="rubber" data-ui :x1="rubber.from.x" :y1="rubber.from.y" :x2="rubber.x" :y2="rubber.y" :stroke="rubber.target ? c.warn : c.sel" stroke-width="2" stroke-dasharray="6 4" pointer-events="none" />
