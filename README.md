@@ -1,75 +1,68 @@
-# Nuxt Minimal Starter
+# Italian ER Builder
 
-Look at the [Nuxt documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
+A browser-based editor for drawing **entity-relationship diagrams in the Italian notation**: entities, relationships, `(min,max)` cardinalities, identifiers and generalizations. Available in English and Italian.
 
-## Setup
+Source: <https://github.com/le0o0oo/italian-er-builder>
 
-Make sure to install dependencies:
+## Features
+
+- Entities, relationships and generalizations, with attributes and `(min,max)` cardinalities
+- Internal and external identifiers
+- Automatic layout with several strategies: organic, layered, radial, circular and grid
+- Design warnings with configurable rules that flag common modelling mistakes
+- Search, undo/redo, keyboard shortcuts, trackpad pan/pinch
+- Mobile-friendly UI with a snap drawer inspector
+- Light and dark themes
+- Import and export: PNG, SVG, JSON and Mermaid
+- Built-in usage guide (`/guide`) and example diagram
+
+## Tech stack
+
+- [Nuxt 4](https://nuxt.com) / Vue 3
+- [shadcn-vue](https://www.shadcn-vue.com) (via `shadcn-nuxt`) and [Reka UI](https://reka-ui.com)
+- [Tailwind CSS v4](https://tailwindcss.com)
+- [`@nuxt/icon`](https://nuxt.com/modules/icon) (Iconify / Lucide icons)
+
+## Getting started
+
+Requires Node.js and [pnpm](https://pnpm.io).
 
 ```bash
-# npm
-npm install
-
-# pnpm
+git clone https://github.com/le0o0oo/italian-er-builder.git
+cd italian-er-builder
 pnpm install
-
-# yarn
-yarn install
-
-# bun
-bun install
-```
-
-## Development Server
-
-Start the development server on `http://localhost:3000`:
-
-```bash
-# npm
-npm run dev
-
-# pnpm
 pnpm dev
-
-# yarn
-yarn dev
-
-# bun
-bun run dev
 ```
 
-## Production
+The dev server runs on <http://localhost:3000>.
 
-Build the application for production:
+## Scripts
+
+| Command         | Description                  |
+| --------------- | ---------------------------- |
+| `pnpm dev`      | Start the development server |
+| `pnpm build`    | Build for production         |
+| `pnpm generate` | Generate a static site       |
+| `pnpm preview`  | Preview the production build |
+
+## Project structure
+
+```
+app/
+  components/   UI: canvas, inspector, dialogs, warnings panel (ui/ = shadcn-vue)
+  composables/  diagram state, shortcuts, warnings, i18n, SEO
+  i18n/         en and it translations
+  pages/        index (editor) and guide
+  utils/        layout algorithms, geometry, rules, Mermaid export
+server/routes/  robots.txt and sitemap.xml
+```
+
+## Contributing
+
+UI components that exist in shadcn-vue should be added with the CLI rather than hand-written:
 
 ```bash
-# npm
-npm run build
-
-# pnpm
-pnpm build
-
-# yarn
-yarn build
-
-# bun
-bun run build
+pnpm dlx shadcn-vue@latest add <component>
 ```
 
-Locally preview production build:
-
-```bash
-# npm
-npm run preview
-
-# pnpm
-pnpm preview
-
-# yarn
-yarn preview
-
-# bun
-bun run preview
-```
-
-Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
+Use `<Icon name="lucide:..." />` for icons.

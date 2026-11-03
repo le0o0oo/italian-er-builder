@@ -68,6 +68,7 @@ export default {
   'tip.undo': 'Undo',
   'tip.redo': 'Redo',
   'tip.shortcuts': 'Keyboard shortcuts',
+  'tip.github': 'View on GitHub',
   'tip.theme': 'Toggle theme',
   'tip.language': 'Language',
   'tip.zoomOut': 'Zoom out (or scroll)',

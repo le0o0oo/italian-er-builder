@@ -65,6 +65,7 @@ export default {
   'tip.undo': 'Annulla',
   'tip.redo': 'Ripeti',
   'tip.shortcuts': 'Scorciatoie da tastiera',
+  'tip.github': 'Vedi su GitHub',
   'tip.theme': 'Cambia tema',
   'tip.language': 'Lingua',
   'tip.zoomOut': 'Riduci (o scorri)',
