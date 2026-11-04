@@ -19,7 +19,7 @@ watch(open, v => { if (!v) capturing.value = null })
 
 <template>
   <Dialog v-model:open="open">
-    <DialogContent class="max-h-[85vh] overflow-y-auto sm:max-w-md">
+    <DialogContent class="max-h-[85dvh] overflow-y-auto sm:max-w-md">
       <DialogHeader>
         <DialogTitle>{{ t('sc.title') }}</DialogTitle>
         <DialogDescription>{{ t('sc.desc') }}</DialogDescription>
