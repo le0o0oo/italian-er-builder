@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Card, DiagramNode, Entity, Generalization, Relationship } from '~/types/er'
 
-const { diagram, selectedId, mode, pendingId, isEmpty, find, select, addEntity, addRelationship, addGeneralization, connectNodes, addRelationshipBetween, addRelationshipFor, makeChildOf, addAttribute, remove, duplicate, addGeneralizationFor, autoLayout, runLayout } = useDiagram()
+const { diagram, selectedId, mode, pendingId, isEmpty, find, select, addEntity, addRelationship, addGeneralization, connectNodes, addRelationshipBetween, addRelationshipFor, addRecursiveRelationship, makeChildOf, addAttribute, remove, duplicate, addGeneralizationFor, autoLayout, runLayout } = useDiagram()
 const c = useErColors()
 const { byNode: warned } = useWarnings()
 const { label: key } = useShortcuts()
@@ -272,13 +272,43 @@ const combDir = (id: string) => combDirs.value[id] ?? 1
 
 // ---- geometry for links & generalizations ----
 const lines = computed(() => {
-  const out: { entityId: string, id: string, x1: number, y1: number, x2: number, y2: number, lx: number, ly: number, card: string, identifying: boolean, mark: Card }[] = []
+  const out: { entityId: string, id: string, x1: number, y1: number, x2: number, y2: number, lx: number, ly: number, card: string, identifying: boolean, mark: Card, pts?: { x: number, y: number }[], ux?: number, uy?: number }[] = []
   for (const rel of diagram.value.relationships) {
     for (const [i, link] of rel.links.entries()) {
       const ent = diagram.value.entities.find(e => e.id === link.entityId)
       if (!ent) continue
       const siblings = rel.links.filter(l => l.entityId === link.entityId)
       const idx = siblings.indexOf(link)
+      if (siblings.length > 1) {
+        // recursive relationship: rectilinear loop out of the entity's side and into the relationship's matching vertex
+        const { w: ew, h: eh } = nodeSize(ent)
+        const { w: rw, h: rh } = nodeSize(rel)
+        const vertical = Math.abs(rel.y - ent.y) >= Math.abs(rel.x - ent.x) * 0.6
+        const s = idx % 2 === 0 ? -1 : 1
+        const layer = Math.floor(idx / 2) * 18
+        const M = 36 + layer
+        let pts: P[]
+        let u: P
+        if (vertical) {
+          const X = s < 0 ? Math.min(ent.x - ew / 2, rel.x - rw / 2) - M : Math.max(ent.x + ew / 2, rel.x + rw / 2) + M
+          pts = [{ x: ent.x + s * ew / 2, y: ent.y }, { x: X, y: ent.y }, { x: X, y: rel.y }, { x: rel.x + s * rw / 2, y: rel.y }]
+          u = { x: s, y: 0 }
+        }
+        else {
+          const Y = s < 0 ? Math.min(ent.y - eh / 2, rel.y - rh / 2) - M : Math.max(ent.y + eh / 2, rel.y + rh / 2) + M
+          pts = [{ x: ent.x, y: ent.y + s * eh / 2 }, { x: ent.x, y: Y }, { x: rel.x, y: Y }, { x: rel.x, y: rel.y + s * rh / 2 }]
+          u = { x: 0, y: s }
+        }
+        const a = pts[2]!
+        const b = pts[3]!
+        out.push({
+          entityId: ent.id, id: `${rel.id}-${link.id}-${i}`, x1: b.x, y1: b.y, x2: pts[0]!.x, y2: pts[0]!.y,
+          lx: (a.x + b.x) / 2 + (vertical ? 0 : 14), ly: (a.y + b.y) / 2 + (vertical ? 12 : 0),
+          card: `(${link.card})`, identifying: link.identifying, mark: rel.links.length === 2 ? rel.links[1 - i]!.card : link.card,
+          pts, ux: u.x, uy: u.y,
+        })
+        continue
+      }
       const off = (idx - (siblings.length - 1) / 2) * 32
       const len = Math.hypot(rel.x - ent.x, rel.y - ent.y) || 1
       const ux = (rel.x - ent.x) / len
@@ -528,7 +558,8 @@ function crowEnd(x: number, y: number, ux: number, uy: number, card: Card) {
 }
 const ends = computed(() => Object.fromEntries(lines.value.map((l) => {
   const len = Math.hypot(l.x1 - l.x2, l.y1 - l.y2) || 1
-  return [l.id, crowEnd(l.x2, l.y2, (l.x1 - l.x2) / len, (l.y1 - l.y2) / len, l.mark)]
+  const dir = l.ux !== undefined ? [l.ux, l.uy!] as const : [(l.x1 - l.x2) / len, (l.y1 - l.y2) / len] as const
+  return [l.id, crowEnd(l.x2, l.y2, dir[0], dir[1], l.mark)]
 })))
 /** two parallel lines (total participation in a generalization) */
 const parallel = (a: P, b: P, off: number) => {
@@ -671,7 +702,8 @@ onMounted(() => {
     <g ref="content" :transform="`translate(${view.x} ${view.y}) scale(${view.k})`" font-family="Arial, Helvetica, sans-serif">
       <!-- relationship ↔ entity lines -->
       <g v-for="l in lines" :key="l.id">
-        <line :x1="l.x1" :y1="l.y1" :x2="l.x2" :y2="l.y2" :stroke="c.ink" stroke-width="1.5" :stroke-dasharray="crow && !l.identifying ? '7 5' : undefined" />
+        <polyline v-if="l.pts" :points="l.pts.map(q => `${q.x},${q.y}`).join(' ')" fill="none" stroke-linejoin="round" :stroke="c.ink" stroke-width="1.5" :stroke-dasharray="crow && !l.identifying ? '7 5' : undefined" />
+        <line v-else :x1="l.x1" :y1="l.y1" :x2="l.x2" :y2="l.y2" :stroke="c.ink" stroke-width="1.5" :stroke-dasharray="crow && !l.identifying ? '7 5' : undefined" />
         <template v-if="crow">
           <path :d="ends[l.id]!.path" fill="none" :stroke="c.ink" stroke-width="1.5" stroke-linecap="round" />
           <circle v-if="ends[l.id]!.circle" :cx="ends[l.id]!.circle!.cx" :cy="ends[l.id]!.circle!.cy" r="4.5" :fill="c.paper" :stroke="c.ink" stroke-width="1.5" />
@@ -793,6 +825,7 @@ onMounted(() => {
           </ContextMenuSubContent>
         </ContextMenuSub>
         <ContextMenuItem @select="addRelationshipFor(ctxNode.id)"><Icon name="lucide:diamond" /> {{ t('ctx.newRel') }}</ContextMenuItem>
+        <ContextMenuItem @select="addRecursiveRelationship(ctxNode.id)"><Icon name="lucide:repeat" /> {{ t('ctx.newRecursiveRel') }}</ContextMenuItem>
         <ContextMenuItem @select="addGeneralizationFor(ctxNode.id)"><Icon name="lucide:triangle" /> {{ t('ctx.newGen') }} <ContextMenuShortcut>{{ key('addGeneralization') }}</ContextMenuShortcut></ContextMenuItem>
       </template>
       <ContextMenuSeparator />

@@ -102,6 +102,7 @@ export default {
   'ctx.connectToRel': 'Collega ad associazione',
   'ctx.attachGen': 'Collega a generalizzazione',
   'ctx.newRel': 'Nuova associazione',
+  'ctx.newRecursiveRel': 'Nuova associazione ricorsiva',
   'ctx.newGen': 'Nuova generalizzazione',
   'ctx.duplicate': 'Duplica',
   'ctx.delete': 'Elimina',

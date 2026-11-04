@@ -123,6 +123,18 @@ export function useDiagram() {
     diagram.value.relationships.push(n)
     select(n.id)
   }
+  /** New recursive (circular) relationship: both ends link to the same entity. */
+  function addRecursiveRelationship(entityId: string) {
+    const e = diagram.value.entities.find(x => x.id === entityId)
+    if (!e) return
+    const n: Relationship = {
+      id: uid(), kind: 'relationship', name: `${t('default.relationship')} ${diagram.value.relationships.length + 1}`,
+      x: snap(e.x), y: snap(e.y + nodeSize(e).h / 2 + 144), attributes: [],
+      links: [{ id: uid(), entityId: e.id, card: '0,N', identifying: false }, { id: uid(), entityId: e.id, card: '0,N', identifying: false }],
+    }
+    diagram.value.relationships.push(n)
+    select(n.id)
+  }
   /** Makes `child` a child of `parent`, reusing the parent's generalization if it already has one. */
   function makeChildOf(child: Entity, parent: Entity) {
     let g = diagram.value.generalizations.find(x => x.parentId === parent.id)
@@ -297,5 +309,5 @@ export function useDiagram() {
     }, { deep: true })
   }
 
-  return { diagram, selectedId, selected, mode, pendingId, isEmpty, find, select, setMode, addEntity, addRelationship, addGeneralization, addLink, connectNodes, addRelationshipBetween, addRelationshipFor, makeChildOf, addAttribute, remove, load, init, undo, redo, canUndo, canRedo, duplicate, addGeneralizationFor, autoLayout, setAutoLayout, layoutStrategy, setLayoutStrategy, runLayout, fitRequest }
+  return { diagram, selectedId, selected, mode, pendingId, isEmpty, find, select, setMode, addEntity, addRelationship, addGeneralization, addLink, connectNodes, addRelationshipBetween, addRelationshipFor, addRecursiveRelationship, makeChildOf, addAttribute, remove, load, init, undo, redo, canUndo, canRedo, duplicate, addGeneralizationFor, autoLayout, setAutoLayout, layoutStrategy, setLayoutStrategy, runLayout, fitRequest }
 }

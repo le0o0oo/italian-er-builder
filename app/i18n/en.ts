@@ -106,6 +106,7 @@ export default {
   'ctx.connectToRel': 'Connect to relationship',
   'ctx.attachGen': 'Attach to generalization',
   'ctx.newRel': 'New relationship',
+  'ctx.newRecursiveRel': 'New recursive relationship',
   'ctx.newGen': 'New generalization',
   'ctx.duplicate': 'Duplicate',
   'ctx.delete': 'Delete',
