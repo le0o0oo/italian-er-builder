@@ -230,7 +230,8 @@ function onBgDblClick(ev: MouseEvent) {
 }
 
 // ---- attribute lists hang on the side (below/above) that the connection lines avoid ----
-const combDirs = computed(() => {
+const combLayout = computed(() => {
+  const sides: Record<string, number> = {}
   const d = diagram.value
   const adj = new Map<string, { x: number, y: number }[]>()
   const link = (a: { id: string, x: number, y: number }, b: { id: string, x: number, y: number }) => {
@@ -246,12 +247,11 @@ const combDirs = computed(() => {
     out[n.id] = 1
     if (!n.attributes.length) continue
     const { w, h } = nodeSize(n)
-    const spine = n.kind === 'entity' ? -w / 2 + 18 : 0
     const labelW = Math.max(...n.attributes.map(a => a.name.length + (a.card === '1,1' ? 0 : 6))) * 7 + 44
-    const x0 = n.x + spine - 6
-    const x1 = n.x + spine + labelW
     const depth = 14 + n.attributes.length * 24
-    const hits = (dir: 1 | -1) => {
+    const score = (spine: number, flip: boolean, dir: 1 | -1) => {
+      const x0 = flip ? n.x + spine - labelW : n.x + spine - 6
+      const x1 = flip ? n.x + spine + 6 : n.x + spine + labelW
       const y0 = dir === 1 ? n.y + h / 2 : n.y - h / 2 - depth
       const y1 = dir === 1 ? n.y + h / 2 + depth : n.y - h / 2
       let count = 0
@@ -264,10 +264,24 @@ const combDirs = computed(() => {
       }
       return count
     }
-    out[n.id] = hits(-1) < hits(1) ? -1 : 1
+    if (n.kind === 'entity') {
+      const spine = -w / 2 + 18
+      out[n.id] = score(spine, false, -1) < score(spine, false, 1) ? -1 : 1
+      continue
+    }
+    // relationships: hang the list from the centre, else slide it to the right/left of the diamond (labels flow outwards)
+    let best = Infinity
+    for (const side of [0, 1, -1]) {
+      for (const dir of [1, -1] as const) {
+        const sc = score(side * w / 4, side < 0, dir) + (side ? 0.5 : 0)
+        if (sc < best) { best = sc; out[n.id] = dir; sides[n.id] = side }
+      }
+    }
   }
-  return out
+  return { dirs: out, sides }
 })
+const combDirs = computed(() => combLayout.value.dirs)
+const relSpine = (r: { id: string }) => ((combLayout.value.sides[r.id] ?? 0) * nodeSize(r as never).w / 4)
 const combDir = (id: string) => combDirs.value[id] ?? 1
 
 // ---- geometry for links & generalizations ----
@@ -762,7 +776,7 @@ onMounted(() => {
 
       <!-- relationships -->
       <g v-for="r in diagram.relationships" :key="r.id" :data-id="r.id" :transform="`translate(${r.x} ${r.y})`" :class="autoLayout ? 'cursor-pointer' : 'cursor-move'" @pointerdown.stop="onNodeDown($event, r)" @contextmenu="onContext($event, r)">
-        <ErAttributes v-if="!crow" :attributes="r.attributes" :spine-x="0" :start-y="combDir(r.id) * nodeSize(r).h / 2" :dir="combDir(r.id)" />
+        <ErAttributes v-if="!crow" :attributes="r.attributes" :spine-x="relSpine(r)" :start-y="combDir(r.id) * nodeSize(r).h / 2 * (1 - Math.abs(relSpine(r)) / (nodeSize(r).w / 2))" :dir="combDir(r.id)" :flip="relSpine(r) < 0" />
         <rect v-if="crow && (isSel(r) || isPending(r) || rubber?.target === r.id)" data-ui :x="outline(r).x" :y="outline(r).y" :width="outline(r).w" :height="outline(r).h" rx="18" fill="none" :stroke="isPending(r) || rubber?.target === r.id ? c.warn : c.sel" stroke-width="2" stroke-dasharray="5 3" />
         <polygon v-else-if="isSel(r) || isPending(r) || rubber?.target === r.id" data-ui :points="outline(r).points" fill="none" :stroke="isPending(r) || rubber?.target === r.id ? c.warn : c.sel" stroke-width="2" stroke-dasharray="5 3" />
         <ErBox v-if="crow" :node="r" />

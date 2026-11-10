@@ -91,6 +91,12 @@ export default {
   'notice.clipboardFail': 'Impossibile accedere agli appunti',
   'alert.invalidFile': 'Questo file non è un diagramma ER valido.',
   'confirm.clear': 'Eliminare tutto il diagramma?',
+  'confirm.title': 'Sostituire il diagramma attuale?',
+  'confirm.replace': 'Il diagramma attuale verrà sostituito.',
+  'confirm.ok': 'Sostituisci',
+  'confirm.cancel': 'Annulla',
+  'confirm.importFile': 'Importare questo file?',
+  'drop.hint': 'Rilascia un file JSON per importarlo',
 
   'canvas.empty': 'Fai doppio clic sull\'area o usa la barra degli strumenti per creare la prima entità.',
   'canvas.handle': 'Trascina su un altro elemento per collegare',

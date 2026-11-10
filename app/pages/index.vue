@@ -95,17 +95,45 @@ function exportPng() {
   img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(markup)}`
 }
 
-async function onImport(ev: Event) {
-  const file = (ev.target as HTMLInputElement).files?.[0]
-  ;(ev.target as HTMLInputElement).value = ''
+// ---- confirmation before anything that replaces the current diagram ----
+const confirmState = reactive({ open: false, title: '', desc: '', action: () => {} })
+function askReplace(action: () => void, opts: { title?: string, desc?: string } = {}) {
+  if (isEmpty.value) { action(); return }
+  confirmState.title = opts.title ?? t('confirm.title')
+  confirmState.desc = opts.desc ?? t('confirm.replace')
+  confirmState.action = action
+  confirmState.open = true
+}
+
+async function importFile(file: File | undefined) {
   if (!file) return
   try {
     const d = JSON.parse(await file.text()) as Diagram
     if (!Array.isArray(d.entities) || !Array.isArray(d.relationships) || !Array.isArray(d.generalizations)) throw new Error('bad shape')
-    load(d)
-    nextTick(() => canvas.value?.fit())
+    askReplace(() => {
+      load(d)
+      nextTick(() => canvas.value?.fit())
+    }, { title: t('confirm.importFile'), desc: `${file.name} — ${t('confirm.replace')}` })
   }
   catch { alert(t('alert.invalidFile')) }
+}
+function onImport(ev: Event) {
+  const input = ev.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  importFile(file)
+}
+
+// drag & drop a .json file anywhere on the page
+const dragging = ref(false)
+let dragDepth = 0
+const hasFiles = (ev: DragEvent) => !!ev.dataTransfer?.types.includes('Files')
+function onDragEnter(ev: DragEvent) { if (hasFiles(ev)) { dragDepth++; dragging.value = true } }
+function onDragLeave(ev: DragEvent) { if (hasFiles(ev) && --dragDepth <= 0) { dragDepth = 0; dragging.value = false } }
+function onDrop(ev: DragEvent) {
+  dragDepth = 0
+  dragging.value = false
+  importFile(ev.dataTransfer?.files[0])
 }
 
 const notice = ref('')
@@ -124,14 +152,16 @@ async function copyMermaid() {
 const panel = 'flex items-center gap-1 rounded-xl border bg-background/80 p-1.5 shadow-lg backdrop-blur-md'
 
 function loadSample() {
-  load(sampleDiagram(t))
-  nextTick(() => canvas.value?.fit())
+  askReplace(() => {
+    load(sampleDiagram(t))
+    nextTick(() => canvas.value?.fit())
+  })
 }
 function clearAll() {
-  if (isEmpty.value || confirm(t('confirm.clear'))) {
+  askReplace(() => {
     load(emptyDiagram())
     nextTick(() => canvas.value?.fit())
-  }
+  }, { title: t('confirm.clear'), desc: t('confirm.replace') })
 }
 
 const shortcuts = useShortcuts()
@@ -139,8 +169,10 @@ const shortcutsOpen = ref(false)
 const tour = ref<{ start: () => void }>()
 const llmOpen = ref(false)
 function importFromLlm(d: Diagram) {
-  load(d)
-  nextTick(() => runLayout({ fit: true, animate: false }))
+  askReplace(() => {
+    load(d)
+    nextTick(() => runLayout({ fit: true, animate: false }))
+  })
 }
 const searchOpen = ref(false)
 function pickSearch(id: string) {
@@ -207,7 +239,7 @@ const hint = computed(() => {
 
 <template>
   <TooltipProvider :delay-duration="300">
-    <div class="relative h-dvh overflow-hidden bg-background">
+    <div class="relative h-dvh overflow-hidden bg-background" @dragenter.prevent="onDragEnter" @dragover.prevent @dragleave="onDragLeave" @drop.prevent="onDrop">
       <!-- Crawlable, screen-reader friendly description of the app (the canvas itself is client-rendered). -->
       <section class="sr-only" :aria-label="t('sr.about')">
         <h1>{{ t('sr.h1') }}</h1>
@@ -368,6 +400,23 @@ const hint = computed(() => {
 
       <!-- transient messages -->
       <div v-if="hint || notice" :class="[panel, 'pointer-events-none absolute top-[4.75rem] left-1/2 -translate-x-1/2 bg-neutral-900/90 px-4 text-sm text-white']">{{ hint || notice }}</div>
+
+      <div v-if="dragging" class="pointer-events-none absolute inset-0 z-50 flex items-center justify-center border-4 border-dashed border-primary bg-background/70 backdrop-blur-sm">
+        <div class="flex items-center gap-2 text-lg font-medium"><Icon name="lucide:upload" /> {{ t('drop.hint') }}</div>
+      </div>
+
+      <AlertDialog v-model:open="confirmState.open">
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{{ confirmState.title }}</AlertDialogTitle>
+            <AlertDialogDescription>{{ confirmState.desc }}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{{ t('confirm.cancel') }}</AlertDialogCancel>
+            <AlertDialogAction @click="confirmState.action()">{{ t('confirm.ok') }}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <TourGuide ref="tour" />
       <ShortcutsDialog v-model:open="shortcutsOpen" />

@@ -94,6 +94,12 @@ export default {
   'notice.clipboardFail': 'Could not access the clipboard',
   'alert.invalidFile': 'This file is not a valid ER diagram.',
   'confirm.clear': 'Delete the whole diagram?',
+  'confirm.title': 'Replace current diagram?',
+  'confirm.replace': 'This will replace your current diagram.',
+  'confirm.ok': 'Replace',
+  'confirm.cancel': 'Cancel',
+  'confirm.importFile': 'Import this file?',
+  'drop.hint': 'Drop a JSON file to import it',
 
   // canvas
   'canvas.empty': 'Double-click the canvas or use the toolbar to create your first entity.',
