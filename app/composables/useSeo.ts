@@ -14,7 +14,6 @@ export function useSeo(opts: { title: () => string, description: () => string })
     twitterCard: 'summary',
     twitterTitle: opts.title,
     twitterDescription: opts.description,
-    robots: 'index, follow',
   })
   useHead({ link: [{ rel: 'canonical', href: canonical }] })
   return { canonical }
